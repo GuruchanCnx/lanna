@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { 
   Home as HomeIcon, Coffee, ShoppingBag, MapPin, ShieldCheck, 
   User, Sparkles, Phone, Check, Share2, Accessibility, 
-  ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock
+  ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock,
+  Search, X, Camera
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
@@ -15,6 +16,7 @@ import { LanguageToggle } from './components/LanguageToggle';
 import { SimpleModeToggle } from './components/SimpleModeToggle';
 import { SocialShare } from './components/SocialShare';
 import { OrderStatusTracker } from './components/OrderStatusTracker';
+import { HeroImageModal } from './components/HeroImageModal';
 import { Admin } from './pages/Admin';
 
 function App() {
@@ -34,6 +36,14 @@ function App() {
   // Favorites & Menu filter states
   const [favorites, setFavorites] = useState<string[]>([]);
   const [menuFilter, setMenuFilter] = useState<'all' | 'favorites' | Category>('all');
+
+  // Search & Recent search states (stores last 3 searches)
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  // Hero wall image state
+  const [heroImage, setHeroImage] = useState<string>('/images/chiangmai-bag.png');
+  const [isHeroModalOpen, setIsHeroModalOpen] = useState<boolean>(false);
 
   // Item customization state (for menu)
   const [selectedBevOptions, setSelectedBevOptions] = useState<Record<string, { temperature: 'hot' | 'cold', toppings: 'none' | 'with' }>>({});
@@ -59,6 +69,25 @@ function App() {
         setFavorites(JSON.parse(storedFavs));
       } catch {
         setFavorites([]);
+      }
+    }
+
+    // Load saved hero wall image
+    const storedHero = localStorage.getItem('fs_hero_image');
+    if (storedHero) {
+      setHeroImage(storedHero);
+    }
+
+    // Load saved recent searches (last 3 items)
+    const storedRecent = localStorage.getItem('fs_recent_searches');
+    if (storedRecent) {
+      try {
+        const parsed = JSON.parse(storedRecent);
+        if (Array.isArray(parsed)) {
+          setRecentSearches(parsed.slice(0, 3));
+        }
+      } catch {
+        setRecentSearches([]);
       }
     }
   }, []);
@@ -109,6 +138,53 @@ function App() {
       }
       return next;
     });
+  };
+
+  const handleSaveHeroImage = (newUrl: string) => {
+    setHeroImage(newUrl);
+    try {
+      localStorage.setItem('fs_hero_image', newUrl);
+    } catch (e) {
+      console.warn('Could not save hero image to localStorage', e);
+    }
+  };
+
+  const addRecentSearch = (query: string) => {
+    const trimmed = query.trim();
+    if (!trimmed) return;
+    setRecentSearches((prev) => {
+      // Remove duplicate if exists (case-insensitive)
+      const filtered = prev.filter((item) => item.toLowerCase() !== trimmed.toLowerCase());
+      // Keep at most 3 items, newest at front
+      const updated = [trimmed, ...filtered].slice(0, 3);
+      try {
+        localStorage.setItem('fs_recent_searches', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  const removeRecentSearch = (term: string) => {
+    setRecentSearches((prev) => {
+      const updated = prev.filter((item) => item !== term);
+      try {
+        localStorage.setItem('fs_recent_searches', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  const clearAllRecentSearches = () => {
+    setRecentSearches([]);
+    try {
+      localStorage.removeItem('fs_recent_searches');
+    } catch {
+      // ignore
+    }
   };
 
   const handleLanguageChange = (newLang: Language) => {
@@ -342,6 +418,17 @@ function App() {
     );
   };
 
+  // Filter products by search query
+  const query = searchQuery.trim().toLowerCase();
+  const searchedProducts = products.filter((p) => {
+    if (!query) return true;
+    const matchNameTh = p.nameTh?.toLowerCase().includes(query);
+    const matchNameEn = p.nameEn?.toLowerCase().includes(query);
+    const matchDescTh = p.descriptionTh?.toLowerCase().includes(query);
+    const matchDescEn = p.descriptionEn?.toLowerCase().includes(query);
+    return matchNameTh || matchNameEn || matchDescTh || matchDescEn;
+  });
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-300">
       
@@ -448,13 +535,27 @@ function App() {
                 </div>
               </div>
 
-              <div className="relative aspect-square md:aspect-auto min-h-[300px]">
+              <div className="relative aspect-square md:aspect-auto min-h-[300px] overflow-hidden rounded-3xl group">
                 <img 
-                  src="/images/chiangmai-bag.png" 
-                  alt="Chiang Mai Traditional Bag" 
-                  className="absolute inset-0 w-full h-full object-cover"
+                  src={heroImage} 
+                  alt="Chiang Mai Traditional Bag & Culture" 
+                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none" />
+                
+                {/* Hero Wall Image Edit/Upload Trigger */}
+                <div className="absolute top-4 right-4 z-10">
+                  <button
+                    type="button"
+                    onClick={() => setIsHeroModalOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/80 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl backdrop-blur-md shadow-lg border border-white/20 transition-all active:scale-95 hover:scale-105 cursor-pointer"
+                    title={t.editHeroImage}
+                    aria-label={t.editHeroImage}
+                  >
+                    <Camera className="w-3.5 h-3.5 text-rose-400" />
+                    <span className="hidden sm:inline">{t.editHeroImage}</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -490,148 +591,283 @@ function App() {
         {/* TAB 2: MENU */}
         {activeTab === 'menu' && (
           <div className="space-y-6">
-            {/* Category selection */}
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none items-center">
-              {/* All Filter */}
-              <button
-                onClick={() => setMenuFilter('all')}
-                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border ${
-                  menuFilter === 'all'
-                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
-                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                }`}
-              >
-                {lang === 'th' ? "✨ ทั้งหมด" : "✨ All"}
-              </button>
-
-              {/* Favorites Filter */}
-              <button
-                onClick={() => setMenuFilter('favorites')}
-                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 ${
-                  menuFilter === 'favorites'
-                    ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
-                    : 'bg-white dark:bg-slate-900 text-rose-500 border-rose-200 dark:border-rose-950/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/20'
-                }`}
-              >
-                <Heart className={`w-3.5 h-3.5 ${menuFilter === 'favorites' || favorites.length > 0 ? 'fill-current' : ''}`} />
-                <span>{t.catFavorites}</span>
-                {favorites.length > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                    menuFilter === 'favorites'
-                      ? 'bg-white text-rose-600'
-                      : 'bg-rose-500 text-white'
-                  }`}>
-                    {favorites.length}
-                  </span>
-                )}
-              </button>
-
-              {(['donuts', 'beverages', 'desserts', 'bags'] as Category[]).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => {
-                    setMenuFilter(cat);
-                    const el = document.getElementById(`cat-section-${cat}`);
-                    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            {/* Search Input Bar & Recent Searches */}
+            <div className="space-y-3">
+              <div className="relative flex items-center">
+                <div className="absolute left-4 pointer-events-none text-slate-400">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      addRecentSearch(searchQuery.trim());
+                    }
                   }}
-                  className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border ${
-                    menuFilter === cat
-                      ? cat === 'donuts' ? 'bg-amber-500 text-white border-amber-500 ring-2 ring-amber-500/30' :
-                        cat === 'beverages' ? 'bg-sky-500 text-white border-sky-500 ring-2 ring-sky-500/30' :
-                        cat === 'desserts' ? 'bg-emerald-500 text-white border-emerald-500 ring-2 ring-emerald-500/30' :
-                        'bg-rose-500 text-white border-rose-500 ring-2 ring-rose-500/30'
-                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                  }`}
-                >
-                  {cat === 'donuts' && t.catDonuts}
-                  {cat === 'beverages' && t.catBeverages}
-                  {cat === 'desserts' && t.catDesserts}
-                  {cat === 'bags' && t.catBags}
-                </button>
-              ))}
-            </div>
-
-            {/* Product categories list or Favorites view */}
-            {menuFilter === 'favorites' ? (
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center justify-between border-b pb-2 border-rose-500/10">
-                  <h3 className={`font-black tracking-tight text-rose-500 flex items-center gap-2 ${isSimple ? 'text-xl' : 'text-base'}`}>
-                    <Heart className="w-5 h-5 fill-current animate-pulse text-rose-500" />
-                    <span>{t.catFavorites} ({products.filter(p => favorites.includes(p.id)).length})</span>
-                  </h3>
-                  {favorites.length > 0 && (
+                  placeholder={t.searchPlaceholder}
+                  className="w-full pl-11 pr-24 py-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-xs sm:text-sm text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 shadow-sm transition-all"
+                />
+                <div className="absolute right-2.5 flex items-center gap-1">
+                  {searchQuery && (
                     <button
-                      onClick={() => {
-                        setFavorites([]);
-                        try {
-                          localStorage.removeItem('fs_favorites');
-                        } catch {
-                          // ignore error
-                        }
-                      }}
-                      className="text-[11px] font-bold text-slate-400 hover:text-rose-500 transition-colors"
+                      type="button"
+                      onClick={() => setSearchQuery('')}
+                      className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                      title={t.clearSearch}
+                      aria-label={t.clearSearch}
                     >
-                      {lang === 'th' ? "ล้างรายการโปรดทั้งหมด" : "Clear all"}
+                      <X className="w-4 h-4" />
                     </button>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (searchQuery.trim()) {
+                        addRecentSearch(searchQuery.trim());
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
+                  >
+                    {lang === 'th' ? 'ค้นหา' : 'Search'}
+                  </button>
                 </div>
+              </div>
 
-                {products.filter(p => favorites.includes(p.id)).length === 0 ? (
-                  <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 text-center space-y-4 shadow-sm">
-                    <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
-                      <Heart className="w-8 h-8 animate-pulse text-rose-500" />
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="font-black text-lg text-slate-800 dark:text-white">
-                        {t.noFavoritesTitle}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
-                        {t.noFavoritesDesc}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => setMenuFilter('all')}
-                      className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95"
+              {/* Recent Searches (Stores and displays the last 3 items) */}
+              {recentSearches.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                  <span className="flex items-center gap-1 text-[11px] font-bold text-slate-400 dark:text-slate-500">
+                    <Clock className="w-3.5 h-3.5" />
+                    {t.recentSearches}:
+                  </span>
+                  {recentSearches.slice(0, 3).map((term) => (
+                    <div
+                      key={term}
+                      className="inline-flex items-center gap-1.5 px-3 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-full font-medium text-xs hover:border-rose-400 hover:text-rose-500 shadow-sm transition-all group"
                     >
-                      {lang === 'th' ? "ดูเมนูทั้งหมด" : "Browse Full Menu"}
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {products.filter(p => favorites.includes(p.id)).map(renderProductCard)}
-                  </div>
-                )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSearchQuery(term);
+                          addRecentSearch(term);
+                        }}
+                        className="cursor-pointer text-xs font-medium"
+                      >
+                        {term}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeRecentSearch(term);
+                        }}
+                        className="text-slate-300 dark:text-slate-600 hover:text-rose-500 transition-colors ml-0.5 cursor-pointer"
+                        title={lang === 'th' ? 'ลบคำค้นหานี้' : 'Remove search term'}
+                        aria-label={`Remove ${term}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={clearAllRecentSearches}
+                    className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors underline ml-1 cursor-pointer font-medium"
+                  >
+                    {t.clearSearch}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Active search query status banner */}
+            {query && (
+              <div className="flex items-center justify-between px-4 py-2.5 bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-2xl">
+                <div className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                  <span>{t.searchResults}: </span>
+                  <span className="text-rose-600 dark:text-rose-400 font-extrabold">"{searchQuery}"</span>
+                  <span className="text-slate-400 ml-1.5 font-normal">({searchedProducts.length} {t.itemsCount})</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="text-xs font-bold text-rose-500 hover:text-rose-600 hover:underline cursor-pointer"
+                >
+                  {t.clearSearch}
+                </button>
+              </div>
+            )}
+
+            {/* Zero results state if search produces no matches */}
+            {query && searchedProducts.length === 0 ? (
+              <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 text-center space-y-4 shadow-sm my-4">
+                <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto shadow-inner">
+                  <Search className="w-8 h-8 text-slate-400" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-black text-lg text-slate-800 dark:text-white">
+                    {t.noSearchResults}
+                  </h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    {t.tryOtherKeywords}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  {t.clearSearch}
+                </button>
               </div>
             ) : (
-              (['donuts', 'beverages', 'desserts', 'bags'] as Category[])
-                .filter(cat => menuFilter === 'all' || menuFilter === cat)
-                .map((cat) => {
-                  const catProducts = products.filter(p => p.category === cat);
-                  if (catProducts.length === 0) return null;
+              <>
+                {/* Category selection */}
+                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none items-center">
+                  {/* All Filter */}
+                  <button
+                    onClick={() => setMenuFilter('all')}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border cursor-pointer ${
+                      menuFilter === 'all'
+                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
+                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                    }`}
+                  >
+                    {lang === 'th' ? "✨ ทั้งหมด" : "✨ All"}
+                  </button>
 
-                  return (
-                    <div key={cat} id={`cat-section-${cat}`} className="space-y-4 pt-4">
-                      <h3 className={`font-black tracking-tight border-b pb-2 flex items-center gap-2 ${
-                        cat === 'donuts' ? 'text-amber-500 border-amber-500/10' :
-                        cat === 'beverages' ? 'text-sky-500 border-sky-500/10' :
-                        cat === 'desserts' ? 'text-emerald-500 border-emerald-500/10' :
-                        'text-rose-500 border-rose-500/10'
-                      } ${isSimple ? 'text-xl' : 'text-base'}`}>
-                        <span className="w-2.5 h-2.5 rounded-full bg-current"></span>
-                        <span>
-                          {cat === 'donuts' && t.catDonuts}
-                          {cat === 'beverages' && t.catBeverages}
-                          {cat === 'desserts' && t.catDesserts}
-                          {cat === 'bags' && t.catBags}
-                        </span>
+                  {/* Favorites Filter */}
+                  <button
+                    onClick={() => setMenuFilter('favorites')}
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 cursor-pointer ${
+                      menuFilter === 'favorites'
+                        ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
+                        : 'bg-white dark:bg-slate-900 text-rose-500 border-rose-200 dark:border-rose-950/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/20'
+                    }`}
+                  >
+                    <Heart className={`w-3.5 h-3.5 ${menuFilter === 'favorites' || favorites.length > 0 ? 'fill-current' : ''}`} />
+                    <span>{t.catFavorites}</span>
+                    {favorites.length > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                        menuFilter === 'favorites'
+                          ? 'bg-white text-rose-600'
+                          : 'bg-rose-500 text-white'
+                      }`}>
+                        {favorites.length}
+                      </span>
+                    )}
+                  </button>
+
+                  {(['donuts', 'beverages', 'desserts', 'bags'] as Category[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => {
+                        setMenuFilter(cat);
+                        const el = document.getElementById(`cat-section-${cat}`);
+                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border cursor-pointer ${
+                        menuFilter === cat
+                          ? cat === 'donuts' ? 'bg-amber-500 text-white border-amber-500 ring-2 ring-amber-500/30' :
+                            cat === 'beverages' ? 'bg-sky-500 text-white border-sky-500 ring-2 ring-sky-500/30' :
+                            cat === 'desserts' ? 'bg-emerald-500 text-white border-emerald-500 ring-2 ring-emerald-500/30' :
+                            'bg-rose-500 text-white border-rose-500 ring-2 ring-rose-500/30'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      {cat === 'donuts' && t.catDonuts}
+                      {cat === 'beverages' && t.catBeverages}
+                      {cat === 'desserts' && t.catDesserts}
+                      {cat === 'bags' && t.catBags}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Product categories list or Favorites view */}
+                {menuFilter === 'favorites' ? (
+                  <div className="space-y-4 pt-2">
+                    <div className="flex items-center justify-between border-b pb-2 border-rose-500/10">
+                      <h3 className={`font-black tracking-tight text-rose-500 flex items-center gap-2 ${isSimple ? 'text-xl' : 'text-base'}`}>
+                        <Heart className="w-5 h-5 fill-current animate-pulse text-rose-500" />
+                        <span>{t.catFavorites} ({searchedProducts.filter(p => favorites.includes(p.id)).length})</span>
                       </h3>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {catProducts.map(renderProductCard)}
-                      </div>
+                      {favorites.length > 0 && (
+                        <button
+                          onClick={() => {
+                            setFavorites([]);
+                            try {
+                              localStorage.removeItem('fs_favorites');
+                            } catch {
+                              // ignore error
+                            }
+                          }}
+                          className="text-[11px] font-bold text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                        >
+                          {lang === 'th' ? "ล้างรายการโปรดทั้งหมด" : "Clear all"}
+                        </button>
+                      )}
                     </div>
-                  );
-                })
+
+                    {searchedProducts.filter(p => favorites.includes(p.id)).length === 0 ? (
+                      <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 text-center space-y-4 shadow-sm">
+                        <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+                          <Heart className="w-8 h-8 animate-pulse text-rose-500" />
+                        </div>
+                        <div className="space-y-1">
+                          <h4 className="font-black text-lg text-slate-800 dark:text-white">
+                            {t.noFavoritesTitle}
+                          </h4>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                            {t.noFavoritesDesc}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setMenuFilter('all')}
+                          className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                        >
+                          {lang === 'th' ? "ดูเมนูทั้งหมด" : "Browse Full Menu"}
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {searchedProducts.filter(p => favorites.includes(p.id)).map(renderProductCard)}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  (['donuts', 'beverages', 'desserts', 'bags'] as Category[])
+                    .filter(cat => menuFilter === 'all' || menuFilter === cat)
+                    .map((cat) => {
+                      const catProducts = searchedProducts.filter(p => p.category === cat);
+                      if (catProducts.length === 0) return null;
+
+                      return (
+                        <div key={cat} id={`cat-section-${cat}`} className="space-y-4 pt-4">
+                          <h3 className={`font-black tracking-tight border-b pb-2 flex items-center gap-2 ${
+                            cat === 'donuts' ? 'text-amber-500 border-amber-500/10' :
+                            cat === 'beverages' ? 'text-sky-500 border-sky-500/10' :
+                            cat === 'desserts' ? 'text-emerald-500 border-emerald-500/10' :
+                            'text-rose-500 border-rose-500/10'
+                          } ${isSimple ? 'text-xl' : 'text-base'}`}>
+                            <span className="w-2.5 h-2.5 rounded-full bg-current"></span>
+                            <span>
+                              {cat === 'donuts' && t.catDonuts}
+                              {cat === 'beverages' && t.catBeverages}
+                              {cat === 'desserts' && t.catDesserts}
+                              {cat === 'bags' && t.catBags}
+                            </span>
+                          </h3>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {catProducts.map(renderProductCard)}
+                          </div>
+                        </div>
+                      );
+                    })
+                )}
+              </>
             )}
           </div>
         )}
@@ -987,6 +1223,15 @@ function App() {
         currentUser={currentUser} 
         onLoginRequest={() => setIsAuthModalOpen(true)} 
         isSimple={isSimple}
+      />
+
+      {/* HERO IMAGE EDIT & UPLOAD MODAL */}
+      <HeroImageModal
+        isOpen={isHeroModalOpen}
+        onClose={() => setIsHeroModalOpen(false)}
+        currentImage={heroImage}
+        onSave={handleSaveHeroImage}
+        lang={lang}
       />
 
     </div>

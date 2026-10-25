@@ -40,6 +40,17 @@ export interface TranslationDict {
   noFavoritesDesc: string;
   orderDelivered: string;
   activeOrderBadge: string;
+  searchPlaceholder: string;
+  recentSearches: string;
+  clearSearch: string;
+  searchResults: string;
+  noSearchResults: string;
+  tryOtherKeywords: string;
+  editHeroImage: string;
+  heroImageModalTitle: string;
+  chooseHeroImage: string;
+  resetToDefault: string;
+  saveChanges: string;
   
   // Auth
   login: string;
@@ -178,6 +189,17 @@ export const translations: Record<Language, TranslationDict> = {
     noFavoritesDesc: "กดไอคอนหัวใจ ❤️ บนเมนูเพื่อบันทึกสินค้าที่คุณชื่นชอบไว้ที่นี่",
     orderDelivered: "รับสินค้าสำเร็จ",
     activeOrderBadge: "กำลังดำเนินการ",
+    searchPlaceholder: "ค้นหาเมนูน้ำเต้าหู้ ปาท่องโก๋ ถุงล้านนา...",
+    recentSearches: "ค้นหาล่าสุด",
+    clearSearch: "ล้างการค้นหา",
+    searchResults: "ผลการค้นหา",
+    noSearchResults: "ไม่พบเมนูที่ค้นหา",
+    tryOtherKeywords: "ลองค้นหาด้วยคำอื่น เช่น น้ำเต้าหู้, ปาท่องโก๋, ถุงผ้า",
+    editHeroImage: "เปลี่ยนภาพหน้าปก",
+    heroImageModalTitle: "แก้ไขภาพหน้าปก (Hero Wall Image)",
+    chooseHeroImage: "เลือกรูปภาพหน้าปกใหม่",
+    resetToDefault: "ใช้ภาพเริ่มต้น",
+    saveChanges: "บันทึกการเปลี่ยนแปลง",
     
     // Auth
     login: "เข้าสู่ระบบ",
@@ -314,6 +336,17 @@ export const translations: Record<Language, TranslationDict> = {
     noFavoritesDesc: "Tap the heart icon ❤️ on any menu item to save your favorite dishes here.",
     orderDelivered: "Completed",
     activeOrderBadge: "In Progress",
+    searchPlaceholder: "Search soy milk, patongko, bags...",
+    recentSearches: "Recent Searches",
+    clearSearch: "Clear search",
+    searchResults: "Search Results",
+    noSearchResults: "No items found",
+    tryOtherKeywords: "Try searching other terms like soy milk, patongko, bags",
+    editHeroImage: "Edit Cover Image",
+    heroImageModalTitle: "Edit Hero Wall Image",
+    chooseHeroImage: "Select New Cover Image",
+    resetToDefault: "Reset to Default",
+    saveChanges: "Save Changes",
     
     // Auth
     login: "Login",
