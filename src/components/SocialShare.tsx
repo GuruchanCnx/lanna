@@ -48,8 +48,7 @@ export const SocialShare: React.FC<SocialShareProps> = ({ lang }) => {
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => {
-            navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-            alert(lang === 'th' ? "คัดลอกลิงก์แล้ว! คุณสามารถเปิด TikTok เพื่อนำลิงก์ไปวางใน Bio หรือคลิปของคุณได้เลย" : "Link copied! Open TikTok and paste the link in your Bio or video caption.");
+            handleCopy();
           }}
           className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 transition-all group"
         >
@@ -81,8 +80,7 @@ export const SocialShare: React.FC<SocialShareProps> = ({ lang }) => {
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => {
-            navigator.clipboard.writeText(`${shareText} ${shareUrl}`);
-            alert(lang === 'th' ? "คัดลอกลิงก์แล้ว! คุณสามารถเปิด Instagram เพื่อนำลิงก์ไปวางใน Bio หรือสตอรี่ของคุณได้เลย" : "Link copied! Open Instagram and paste the link in your Bio or Stories.");
+            handleCopy();
           }}
           className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 hover:scale-105 active:scale-95 transition-all group"
         >

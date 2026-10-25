@@ -318,39 +318,98 @@ class FirebaseFirestoreSimulator {
     const storedMigrated = localStorage.getItem('fs_is_migrated');
     this.isMigrated = storedMigrated ? JSON.parse(storedMigrated) : false;
 
-    const storedMigLogs = localStorage.getItem('fs_migration_logs');
-    this.migrationLogs = storedMigLogs ? JSON.parse(storedMigLogs) : [];
+    try {
+      const storedMigLogs = localStorage.getItem('fs_migration_logs');
+      this.migrationLogs = storedMigLogs ? JSON.parse(storedMigLogs).slice(-15) : [];
+    } catch {
+      this.migrationLogs = [];
+    }
 
-    const storedFsLogs = localStorage.getItem('fs_firestore_logs');
-    this.firestoreLogs = storedFsLogs ? JSON.parse(storedFsLogs) : [];
+    try {
+      const storedFsLogs = localStorage.getItem('fs_firestore_logs');
+      this.firestoreLogs = storedFsLogs ? JSON.parse(storedFsLogs).slice(0, 20) : [];
+    } catch {
+      this.firestoreLogs = [];
+      try {
+        localStorage.removeItem('fs_firestore_logs');
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  private sanitizeDataForLog(data: any): any {
+    if (!data || typeof data !== 'object') return data;
+    if (Array.isArray(data)) return data.map(d => this.sanitizeDataForLog(d));
+    const res: Record<string, any> = {};
+    for (const [k, v] of Object.entries(data)) {
+      if (typeof v === 'string' && v.startsWith('data:image/')) {
+        res[k] = `data:image/... (${Math.round(v.length / 1024)} KB image truncated)`;
+      } else if (typeof v === 'string' && v.length > 200) {
+        res[k] = `${v.substring(0, 200)}... [truncated]`;
+      } else if (typeof v === 'object' && v !== null) {
+        res[k] = this.sanitizeDataForLog(v);
+      } else {
+        res[k] = v;
+      }
+    }
+    return res;
+  }
+
+  private safeStorageSet(key: string, value: string) {
+    try {
+      localStorage.setItem(key, value);
+    } catch (e) {
+      console.warn(`[Storage] Quota exceeded for key: ${key}. Freeing non-essential logs.`);
+      try {
+        localStorage.removeItem('fs_firestore_logs');
+        localStorage.removeItem('fs_migration_logs');
+        localStorage.setItem(key, value);
+      } catch {
+        console.warn(`[Storage] Still exceeded quota for key: ${key}. Changes kept in-memory.`);
+      }
+    }
   }
 
   private saveProducts() {
-    localStorage.setItem('fs_products', JSON.stringify(this.products));
+    this.safeStorageSet('fs_products', JSON.stringify(this.products));
   }
 
   private saveOrders() {
-    localStorage.setItem('fs_orders', JSON.stringify(this.orders));
+    this.safeStorageSet('fs_orders', JSON.stringify(this.orders));
   }
 
   private saveUser() {
     if (this.currentUser) {
-      localStorage.setItem('fs_current_user', JSON.stringify(this.currentUser));
+      this.safeStorageSet('fs_current_user', JSON.stringify(this.currentUser));
     } else {
-      localStorage.removeItem('fs_current_user');
+      try {
+        localStorage.removeItem('fs_current_user');
+      } catch {
+        // ignore
+      }
     }
   }
 
   private saveMigrationState() {
-    localStorage.setItem('fs_is_migrated', JSON.stringify(this.isMigrated));
-    localStorage.setItem('fs_migration_logs', JSON.stringify(this.migrationLogs));
+    this.safeStorageSet('fs_is_migrated', JSON.stringify(this.isMigrated));
+    this.safeStorageSet('fs_migration_logs', JSON.stringify(this.migrationLogs.slice(-15)));
   }
 
   private logFirestoreOp(action: string, code: string) {
     const timestamp = new Date().toLocaleTimeString();
     this.firestoreLogs.unshift({ timestamp, action, code });
-    if (this.firestoreLogs.length > 50) this.firestoreLogs.pop();
-    localStorage.setItem('fs_firestore_logs', JSON.stringify(this.firestoreLogs));
+    if (this.firestoreLogs.length > 20) this.firestoreLogs.pop();
+    try {
+      const persistedLogs = this.firestoreLogs.slice(0, 8);
+      localStorage.setItem('fs_firestore_logs', JSON.stringify(persistedLogs));
+    } catch {
+      try {
+        localStorage.removeItem('fs_firestore_logs');
+      } catch {
+        // ignore
+      }
+    }
   }
 
   // FIRESTORE-LIKE API
@@ -366,9 +425,10 @@ class FirebaseFirestoreSimulator {
       add: async (data: any) => {
         const id = Math.random().toString(36).substring(2, 9);
         const newItem = { id, ...data };
+        const cleanForLog = self.sanitizeDataForLog(data);
         self.logFirestoreOp(
           `addDoc(collection(db, "${name}"), data)`,
-          `const docRef = await addDoc(collection(db, "${name}"), ${JSON.stringify(data, null, 2)});`
+          `const docRef = await addDoc(collection(db, "${name}"), ${JSON.stringify(cleanForLog, null, 2)});`
         );
         if (name === 'products') {
           self.products.push(newItem);
@@ -382,9 +442,10 @@ class FirebaseFirestoreSimulator {
       doc: (docId: string) => {
         return {
           set: async (data: any) => {
+            const cleanForLog = self.sanitizeDataForLog(data);
             self.logFirestoreOp(
               `setDoc(doc(db, "${name}", "${docId}"), data)`,
-              `await setDoc(doc(db, "${name}", "${docId}"), ${JSON.stringify(data, null, 2)});`
+              `await setDoc(doc(db, "${name}", "${docId}"), ${JSON.stringify(cleanForLog, null, 2)});`
             );
             if (name === 'products') {
               const idx = self.products.findIndex(p => p.id === docId);

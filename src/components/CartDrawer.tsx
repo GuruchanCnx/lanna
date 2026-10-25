@@ -69,7 +69,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
 
     if (paymentMethod === 'promptpay' && !receipt) {
-      alert(lang === 'th' ? "กรุณาอัปโหลดสลิปการโอนเงินก่อนยืนยัน" : "Please upload your payment slip first");
       return;
     }
 

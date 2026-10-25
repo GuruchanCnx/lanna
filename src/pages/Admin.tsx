@@ -101,7 +101,7 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
 
   const handleSave = async (id: string) => {
     if (!formNameTh || !formNameEn || formPrice <= 0) {
-      alert(lang === 'th' ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
+      showToast(lang === 'th' ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
       return;
     }
 
@@ -116,18 +116,23 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
       descriptionEn: formDescEn
     };
 
-    await db.collection('products').doc(id).set(updatedData);
-    setEditingId(null);
-    resetForm();
-    showToast(lang === 'th' ? "แก้ไขสินค้าสำเร็จ!" : "Product updated successfully!");
-    fetchProducts();
-    onRefreshProducts();
+    try {
+      await db.collection('products').doc(id).set(updatedData);
+      setEditingId(null);
+      resetForm();
+      showToast(lang === 'th' ? "แก้ไขสินค้าสำเร็จ!" : "Product updated successfully!");
+      fetchProducts();
+      onRefreshProducts();
+    } catch (err) {
+      console.error(err);
+      showToast(lang === 'th' ? "เกิดข้อผิดพลาดในการบันทึก" : "Failed to save product");
+    }
   };
 
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formNameTh || !formNameEn || formPrice <= 0) {
-      alert(lang === 'th' ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
+      showToast(lang === 'th' ? "กรุณากรอกข้อมูลให้ครบถ้วน" : "Please fill in all required fields");
       return;
     }
 
@@ -142,12 +147,17 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
       descriptionEn: formDescEn || "Added by administrator"
     };
 
-    await db.collection('products').add(newProduct);
-    setIsAdding(false);
-    resetForm();
-    showToast(lang === 'th' ? "เพิ่มสินค้าสำเร็จ!" : "Product added successfully!");
-    fetchProducts();
-    onRefreshProducts();
+    try {
+      await db.collection('products').add(newProduct);
+      setIsAdding(false);
+      resetForm();
+      showToast(lang === 'th' ? "เพิ่มสินค้าสำเร็จ!" : "Product added successfully!");
+      fetchProducts();
+      onRefreshProducts();
+    } catch (err) {
+      console.error(err);
+      showToast(lang === 'th' ? "เกิดข้อผิดพลาดในการเพิ่มสินค้า" : "Failed to add product");
+    }
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {

@@ -31,26 +31,49 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ lang, currentValue
     if (!file) return;
 
     setUploading(true);
-    setProgress(0);
+    setProgress(20);
 
-    // Simulate upload to Firebase Storage
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          
-          // Convert to object URL or base64 for local rendering
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            onChange(reader.result as string);
-            setUploading(false);
-          };
-          reader.readAsDataURL(file);
-          return 100;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setProgress(50);
+      const rawDataUrl = event.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        setProgress(80);
+        const maxDim = 600;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
         }
-        return prev + 20;
-      });
-    }, 150);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.75);
+          onChange(compressed);
+        } else {
+          onChange(rawDataUrl);
+        }
+        setProgress(100);
+        setUploading(false);
+      };
+      img.onerror = () => {
+        onChange(rawDataUrl);
+        setProgress(100);
+        setUploading(false);
+      };
+      img.src = rawDataUrl;
+    };
+    reader.readAsDataURL(file);
   };
 
   const triggerFileInput = () => {
