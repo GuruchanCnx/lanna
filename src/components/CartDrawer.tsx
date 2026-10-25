@@ -40,8 +40,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [countdown, setCountdown] = useState(180); // 3 minutes for PromptPay
   const [trackingStatus, setTrackingStatus] = useState<'pending' | 'preparing' | 'ready' | 'completed'>('pending');
 
-  if (!isOpen) return null;
-
   // Calculate totals
   const beverageCount = cart.reduce((sum, item) => {
     return item.product.isBeverage || item.product.category === 'beverages' 
@@ -56,13 +54,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   // PromptPay countdown timer
   useEffect(() => {
     let timer: NodeJS.Timeout;
-    if (step === 'checkout' && paymentMethod === 'promptpay' && countdown > 0) {
+    if (isOpen && step === 'checkout' && paymentMethod === 'promptpay' && countdown > 0) {
       timer = setInterval(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
     }
     return () => clearInterval(timer);
-  }, [step, paymentMethod, countdown]);
+  }, [isOpen, step, paymentMethod, countdown]);
 
   const handlePlaceOrder = async () => {
     if (!currentUser) {
@@ -154,6 +152,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     setCountdown(180);
     onClose();
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-md animate-fade-in">
