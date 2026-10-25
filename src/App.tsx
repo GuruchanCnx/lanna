@@ -14,6 +14,7 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { LanguageToggle } from './components/LanguageToggle';
 import { SimpleModeToggle } from './components/SimpleModeToggle';
 import { SocialShare } from './components/SocialShare';
+import { OrderStatusTracker } from './components/OrderStatusTracker';
 import { Admin } from './pages/Admin';
 
 function App() {
@@ -29,6 +30,10 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
+
+  // Favorites & Menu filter states
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [menuFilter, setMenuFilter] = useState<'all' | 'favorites' | Category>('all');
 
   // Item customization state (for menu)
   const [selectedBevOptions, setSelectedBevOptions] = useState<Record<string, { temperature: 'hot' | 'cold', toppings: 'none' | 'with' }>>({});
@@ -46,6 +51,16 @@ function App() {
 
     const storedSimple = localStorage.getItem('is_simple') === 'true';
     if (storedSimple) setIsSimple(storedSimple);
+
+    // Load saved favorites
+    const storedFavs = localStorage.getItem('fs_favorites');
+    if (storedFavs) {
+      try {
+        setFavorites(JSON.parse(storedFavs));
+      } catch {
+        setFavorites([]);
+      }
+    }
   }, []);
 
   // Fetch orders when user changes
@@ -67,6 +82,33 @@ function App() {
     const allOrders = await db.collection('orders').get() as Order[];
     const filtered = allOrders.filter(o => o.userId === currentUser.uid);
     setUserOrders(filtered);
+  };
+
+  // Poll for updates if there are active (non-completed) orders
+  useEffect(() => {
+    if (!currentUser) return;
+    const hasActiveOrders = userOrders.some(o => o.status !== 'completed');
+    if (!hasActiveOrders) return;
+
+    const interval = setInterval(() => {
+      fetchUserOrders();
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [currentUser, userOrders]);
+
+  const handleToggleFavorite = (productId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setFavorites((prev) => {
+      const isFav = prev.includes(productId);
+      const next = isFav ? prev.filter((id) => id !== productId) : [...prev, productId];
+      try {
+        localStorage.setItem('fs_favorites', JSON.stringify(next));
+      } catch (err) {
+        console.warn('Could not save favorites to localStorage', err);
+      }
+      return next;
+    });
   };
 
   const handleLanguageChange = (newLang: Language) => {
@@ -165,6 +207,139 @@ function App() {
         }
       };
     });
+  };
+
+  // Render a single product card with favorite heart toggle
+  const renderProductCard = (p: Product) => {
+    const isDrink = p.isBeverage || p.category === 'beverages';
+    const bevOptions = selectedBevOptions[p.id] || { temperature: 'hot', toppings: 'none' };
+    const isFav = favorites.includes(p.id);
+
+    return (
+      <div 
+        key={p.id} 
+        className={`bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-md border border-slate-100 dark:border-slate-800 flex flex-col justify-between transition-all hover:shadow-lg relative group ${
+          isSimple ? 'border-2 border-slate-200 dark:border-slate-700 p-5' : ''
+        }`}
+      >
+        <div className="space-y-3">
+          <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950">
+            <img src={p.image} alt={p.nameEn} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+            
+            {/* Favorite Toggle Button */}
+            <button
+              type="button"
+              onClick={(e) => handleToggleFavorite(p.id, e)}
+              title={isFav ? (lang === 'th' ? "ลบออกจากรายการโปรด" : "Remove from favorites") : (lang === 'th' ? "เพิ่มในรายการโปรด" : "Add to favorites")}
+              aria-label={isFav ? "Favorited" : "Add to favorites"}
+              className={`absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-75 shadow-md ${
+                isFav
+                  ? 'bg-rose-500 text-white shadow-rose-500/30 ring-2 ring-white/50 dark:ring-slate-900/50'
+                  : 'bg-white/85 dark:bg-slate-900/85 text-slate-400 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-900'
+              }`}
+            >
+              <Heart className={`w-4 h-4 transition-transform ${isFav ? 'fill-current scale-110' : ''}`} />
+            </button>
+
+            {p.stock <= 5 && (
+              <span className="absolute top-2.5 left-2.5 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
+                {lang === 'th' ? `เหลือ ${p.stock} ชิ้น` : `${p.stock} left`}
+              </span>
+            )}
+          </div>
+
+          <div>
+            <h4 className={`font-black text-slate-800 dark:text-white leading-tight ${isSimple ? 'text-lg' : 'text-sm'}`}>
+              {lang === 'th' ? p.nameTh : p.nameEn}
+            </h4>
+            {p.descriptionTh && (
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
+                {lang === 'th' ? p.descriptionTh : p.descriptionEn}
+              </p>
+            )}
+          </div>
+
+          {/* Customization options for beverages */}
+          {isDrink && !isSimple && (
+            <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800/60">
+              {/* Temperature */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Temp</span>
+                <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange(p.id, 'temperature', 'hot')}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
+                      bevOptions.temperature === 'hot'
+                        ? 'bg-rose-500 text-white'
+                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                    }`}
+                  >
+                    {t.hot}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange(p.id, 'temperature', 'cold')}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
+                      bevOptions.temperature === 'cold'
+                        ? 'bg-rose-500 text-white'
+                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                    }`}
+                  >
+                    {t.cold}
+                  </button>
+                </div>
+              </div>
+
+              {/* Toppings */}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-bold text-slate-400 uppercase">Toppings</span>
+                <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange(p.id, 'toppings', 'none')}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
+                      bevOptions.toppings === 'none'
+                        ? 'bg-rose-500 text-white'
+                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                    }`}
+                  >
+                    {t.noToppings}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOptionChange(p.id, 'toppings', 'with')}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
+                      bevOptions.toppings === 'with'
+                        ? 'bg-rose-500 text-white'
+                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+                    }`}
+                  >
+                    {t.withToppings}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-4 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80">
+          <span className={`font-black text-rose-500 ${isSimple ? 'text-xl' : 'text-sm'}`}>
+            ฿{p.price}
+          </span>
+          <button
+            id={`add-btn-${p.id}`}
+            onClick={() => handleAddToCart(p)}
+            className={`px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black text-xs transition-all active:scale-95 shadow-md shadow-rose-500/5 flex items-center gap-1 ${
+              isSimple ? 'text-sm py-3 px-6 rounded-2xl' : ''
+            }`}
+          >
+            <ShoppingBag className="w-3.5 h-3.5" />
+            <span>{t.addToCart}</span>
+          </button>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -316,19 +491,56 @@ function App() {
         {activeTab === 'menu' && (
           <div className="space-y-6">
             {/* Category selection */}
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none">
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none items-center">
+              {/* All Filter */}
+              <button
+                onClick={() => setMenuFilter('all')}
+                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border ${
+                  menuFilter === 'all'
+                    ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
+                    : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                }`}
+              >
+                {lang === 'th' ? "✨ ทั้งหมด" : "✨ All"}
+              </button>
+
+              {/* Favorites Filter */}
+              <button
+                onClick={() => setMenuFilter('favorites')}
+                className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 ${
+                  menuFilter === 'favorites'
+                    ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
+                    : 'bg-white dark:bg-slate-900 text-rose-500 border-rose-200 dark:border-rose-950/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/20'
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${menuFilter === 'favorites' || favorites.length > 0 ? 'fill-current' : ''}`} />
+                <span>{t.catFavorites}</span>
+                {favorites.length > 0 && (
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                    menuFilter === 'favorites'
+                      ? 'bg-white text-rose-600'
+                      : 'bg-rose-500 text-white'
+                  }`}>
+                    {favorites.length}
+                  </span>
+                )}
+              </button>
+
               {(['donuts', 'beverages', 'desserts', 'bags'] as Category[]).map((cat) => (
                 <button
                   key={cat}
                   onClick={() => {
+                    setMenuFilter(cat);
                     const el = document.getElementById(`cat-section-${cat}`);
                     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                   }}
                   className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border ${
-                    cat === 'donuts' ? 'bg-amber-500 text-white border-amber-500' :
-                    cat === 'beverages' ? 'bg-sky-500 text-white border-sky-500' :
-                    cat === 'desserts' ? 'bg-emerald-500 text-white border-emerald-500' :
-                    'bg-rose-500 text-white border-rose-500'
+                    menuFilter === cat
+                      ? cat === 'donuts' ? 'bg-amber-500 text-white border-amber-500 ring-2 ring-amber-500/30' :
+                        cat === 'beverages' ? 'bg-sky-500 text-white border-sky-500 ring-2 ring-sky-500/30' :
+                        cat === 'desserts' ? 'bg-emerald-500 text-white border-emerald-500 ring-2 ring-emerald-500/30' :
+                        'bg-rose-500 text-white border-rose-500 ring-2 ring-rose-500/30'
+                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
                   }`}
                 >
                   {cat === 'donuts' && t.catDonuts}
@@ -339,143 +551,88 @@ function App() {
               ))}
             </div>
 
-            {/* Product categories list */}
-            {(['donuts', 'beverages', 'desserts', 'bags'] as Category[]).map((cat) => {
-              const catProducts = products.filter(p => p.category === cat);
-              if (catProducts.length === 0) return null;
-
-              return (
-                <div key={cat} id={`cat-section-${cat}`} className="space-y-4 pt-4">
-                  <h3 className={`font-black tracking-tight border-b pb-2 flex items-center gap-2 ${
-                    cat === 'donuts' ? 'text-amber-500 border-amber-500/10' :
-                    cat === 'beverages' ? 'text-sky-500 border-sky-500/10' :
-                    cat === 'desserts' ? 'text-emerald-500 border-emerald-500/10' :
-                    'text-rose-500 border-rose-500/10'
-                  } ${isSimple ? 'text-xl' : 'text-base'}`}>
-                    <span className="w-2.5 h-2.5 rounded-full bg-current"></span>
-                    <span>
-                      {cat === 'donuts' && t.catDonuts}
-                      {cat === 'beverages' && t.catBeverages}
-                      {cat === 'desserts' && t.catDesserts}
-                      {cat === 'bags' && t.catBags}
-                    </span>
+            {/* Product categories list or Favorites view */}
+            {menuFilter === 'favorites' ? (
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between border-b pb-2 border-rose-500/10">
+                  <h3 className={`font-black tracking-tight text-rose-500 flex items-center gap-2 ${isSimple ? 'text-xl' : 'text-base'}`}>
+                    <Heart className="w-5 h-5 fill-current animate-pulse text-rose-500" />
+                    <span>{t.catFavorites} ({products.filter(p => favorites.includes(p.id)).length})</span>
                   </h3>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {catProducts.map((p) => {
-                      const isDrink = p.isBeverage || p.category === 'beverages';
-                      const bevOptions = selectedBevOptions[p.id] || { temperature: 'hot', toppings: 'none' };
-
-                      return (
-                        <div 
-                          key={p.id} 
-                          className={`bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-md border border-slate-100 dark:border-slate-800 flex flex-col justify-between transition-all hover:shadow-lg ${
-                            isSimple ? 'border-2 border-slate-200 dark:border-slate-700 p-5' : ''
-                          }`}
-                        >
-                          <div className="space-y-3">
-                            <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950">
-                              <img src={p.image} alt={p.nameEn} className="w-full h-full object-cover" />
-                              {p.stock <= 5 && (
-                                <span className="absolute top-2 right-2 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full">
-                                  {lang === 'th' ? `เหลือ ${p.stock} ชิ้น` : `${p.stock} left`}
-                                </span>
-                              )}
-                            </div>
-
-                            <div>
-                              <h4 className={`font-black text-slate-800 dark:text-white leading-tight ${isSimple ? 'text-lg' : 'text-sm'}`}>
-                                {lang === 'th' ? p.nameTh : p.nameEn}
-                              </h4>
-                              {p.descriptionTh && (
-                                <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-                                  {lang === 'th' ? p.descriptionTh : p.descriptionEn}
-                                </p>
-                              )}
-                            </div>
-
-                            {/* Customization options for beverages (Not shown or simplified in Simple Mode to keep it super senior friendly) */}
-                            {isDrink && !isSimple && (
-                              <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800/60">
-                                {/* Temperature */}
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Temp</span>
-                                  <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                                    <button
-                                      onClick={() => handleOptionChange(p.id, 'temperature', 'hot')}
-                                      className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                                        bevOptions.temperature === 'hot'
-                                          ? 'bg-rose-500 text-white'
-                                          : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                      }`}
-                                    >
-                                      {t.hot}
-                                    </button>
-                                    <button
-                                      onClick={() => handleOptionChange(p.id, 'temperature', 'cold')}
-                                      className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                                        bevOptions.temperature === 'cold'
-                                          ? 'bg-rose-500 text-white'
-                                          : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                      }`}
-                                    >
-                                      {t.cold}
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Toppings */}
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-[9px] font-bold text-slate-400 uppercase">Toppings</span>
-                                  <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                                    <button
-                                      onClick={() => handleOptionChange(p.id, 'toppings', 'none')}
-                                      className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                                        bevOptions.toppings === 'none'
-                                          ? 'bg-rose-500 text-white'
-                                          : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                      }`}
-                                    >
-                                      {t.noToppings}
-                                    </button>
-                                    <button
-                                      onClick={() => handleOptionChange(p.id, 'toppings', 'with')}
-                                      className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                                        bevOptions.toppings === 'with'
-                                          ? 'bg-rose-500 text-white'
-                                          : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                                      }`}
-                                    >
-                                      {t.withToppings}
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="flex items-center justify-between gap-4 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80">
-                            <span className={`font-black text-rose-500 ${isSimple ? 'text-xl' : 'text-sm'}`}>
-                              ฿{p.price}
-                            </span>
-                            <button
-                              id={`add-btn-${p.id}`}
-                              onClick={() => handleAddToCart(p)}
-                              className={`px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black text-xs transition-all active:scale-95 shadow-md shadow-rose-500/5 flex items-center gap-1 ${
-                                isSimple ? 'text-sm py-3 px-6 rounded-2xl' : ''
-                              }`}
-                            >
-                              <ShoppingBag className="w-3.5 h-3.5" />
-                              <span>{t.addToCart}</span>
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  {favorites.length > 0 && (
+                    <button
+                      onClick={() => {
+                        setFavorites([]);
+                        try {
+                          localStorage.removeItem('fs_favorites');
+                        } catch {
+                          // ignore error
+                        }
+                      }}
+                      className="text-[11px] font-bold text-slate-400 hover:text-rose-500 transition-colors"
+                    >
+                      {lang === 'th' ? "ล้างรายการโปรดทั้งหมด" : "Clear all"}
+                    </button>
+                  )}
                 </div>
-              );
-            })}
+
+                {products.filter(p => favorites.includes(p.id)).length === 0 ? (
+                  <div className="bg-white dark:bg-slate-900 rounded-3xl p-8 border border-slate-100 dark:border-slate-800 text-center space-y-4 shadow-sm">
+                    <div className="w-16 h-16 rounded-3xl bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto shadow-inner">
+                      <Heart className="w-8 h-8 animate-pulse text-rose-500" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-black text-lg text-slate-800 dark:text-white">
+                        {t.noFavoritesTitle}
+                      </h4>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto leading-relaxed">
+                        {t.noFavoritesDesc}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setMenuFilter('all')}
+                      className="px-5 py-2.5 bg-rose-500 hover:bg-rose-600 text-white text-xs font-black rounded-xl transition-all shadow-md active:scale-95"
+                    >
+                      {lang === 'th' ? "ดูเมนูทั้งหมด" : "Browse Full Menu"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {products.filter(p => favorites.includes(p.id)).map(renderProductCard)}
+                  </div>
+                )}
+              </div>
+            ) : (
+              (['donuts', 'beverages', 'desserts', 'bags'] as Category[])
+                .filter(cat => menuFilter === 'all' || menuFilter === cat)
+                .map((cat) => {
+                  const catProducts = products.filter(p => p.category === cat);
+                  if (catProducts.length === 0) return null;
+
+                  return (
+                    <div key={cat} id={`cat-section-${cat}`} className="space-y-4 pt-4">
+                      <h3 className={`font-black tracking-tight border-b pb-2 flex items-center gap-2 ${
+                        cat === 'donuts' ? 'text-amber-500 border-amber-500/10' :
+                        cat === 'beverages' ? 'text-sky-500 border-sky-500/10' :
+                        cat === 'desserts' ? 'text-emerald-500 border-emerald-500/10' :
+                        'text-rose-500 border-rose-500/10'
+                      } ${isSimple ? 'text-xl' : 'text-base'}`}>
+                        <span className="w-2.5 h-2.5 rounded-full bg-current"></span>
+                        <span>
+                          {cat === 'donuts' && t.catDonuts}
+                          {cat === 'beverages' && t.catBeverages}
+                          {cat === 'desserts' && t.catDesserts}
+                          {cat === 'bags' && t.catBags}
+                        </span>
+                      </h3>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {catProducts.map(renderProductCard)}
+                      </div>
+                    </div>
+                  );
+                })
+            )}
           </div>
         )}
 
@@ -498,14 +655,32 @@ function App() {
 
             {/* Bags list */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {products.filter(p => p.category === 'bags').map((p) => (
-                <div key={p.id} className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between transition-all hover:shadow-2xl">
-                  <div className="relative aspect-square bg-slate-50 dark:bg-slate-950">
-                    <img src={p.image} alt={p.nameEn} className="w-full h-full object-cover" />
-                    <span className="absolute bottom-3 left-3 bg-rose-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-md">
-                      ฿{p.price}
-                    </span>
-                  </div>
+              {products.filter(p => p.category === 'bags').map((p) => {
+                const isFav = favorites.includes(p.id);
+                return (
+                  <div key={p.id} className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between transition-all hover:shadow-2xl relative group">
+                    <div className="relative aspect-square bg-slate-50 dark:bg-slate-950">
+                      <img src={p.image} alt={p.nameEn} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      
+                      {/* Favorite Toggle Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFavorite(p.id, e)}
+                        title={isFav ? (lang === 'th' ? "ลบออกจากรายการโปรด" : "Remove from favorites") : (lang === 'th' ? "เพิ่มในรายการโปรด" : "Add to favorites")}
+                        aria-label="Toggle favorite"
+                        className={`absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-75 shadow-md ${
+                          isFav
+                            ? 'bg-rose-500 text-white shadow-rose-500/30 ring-2 ring-white/50 dark:ring-slate-900/50'
+                            : 'bg-white/85 dark:bg-slate-900/85 text-slate-400 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-900'
+                        }`}
+                      >
+                        <Heart className={`w-4 h-4 transition-transform ${isFav ? 'fill-current scale-110' : ''}`} />
+                      </button>
+
+                      <span className="absolute bottom-3 left-3 bg-rose-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-md">
+                        ฿{p.price}
+                      </span>
+                    </div>
 
                   <div className="p-5 space-y-4">
                     <div>
@@ -528,8 +703,9 @@ function App() {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
+          </div>
           </div>
         )}
 
@@ -645,26 +821,39 @@ function App() {
                       {lang === 'th' ? "ไม่มีประวัติการสั่งซื้อ" : "No orders placed yet."}
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                       {userOrders.map((o) => (
-                        <div key={o.id} className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-2">
-                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 border-b border-slate-200/50 dark:border-slate-800/50 pb-1.5">
-                            <span>#{o.id}</span>
-                            <span className="text-emerald-500 uppercase">{o.status}</span>
+                        <div key={o.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-3.5 shadow-sm">
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                            <span className="font-mono text-[11px] text-slate-500">#{o.id}</span>
+                            <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800 px-2.5 py-0.5 rounded-full text-slate-600 dark:text-slate-300 font-medium">
+                              {o.paymentMethod === 'promptpay' ? 'PromptPay' : (lang === 'th' ? 'เงินสด' : 'Cash')}
+                            </span>
                           </div>
+
+                          {/* Order Status Visual Tracker */}
+                          <OrderStatusTracker
+                            order={o}
+                            lang={lang}
+                            isSimple={isSimple}
+                            onRefresh={fetchUserOrders}
+                          />
                           
-                          <div className="space-y-1">
+                          {/* Items summary */}
+                          <div className="space-y-1.5 pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
                             {o.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between text-xs font-bold text-slate-600 dark:text-slate-300">
+                              <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-300">
                                 <span>{lang === 'th' ? item.nameTh : item.nameEn} x{item.quantity}</span>
                                 <span>฿{item.price * item.quantity}</span>
                               </div>
                             ))}
                           </div>
 
-                          <div className="flex justify-between items-center pt-1.5 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
-                            <span className="font-bold text-slate-400">Total</span>
-                            <span className="font-black text-rose-500">฿{o.total}</span>
+                          <div className="flex justify-between items-center pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
+                            <span className="font-bold text-slate-400">
+                              {lang === 'th' ? "ยอดรวมทั้งสิ้น" : "Total"}
+                            </span>
+                            <span className="font-black text-rose-500 text-sm">฿{o.total}</span>
                           </div>
                         </div>
                       ))}

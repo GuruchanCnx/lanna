@@ -34,6 +34,12 @@ export interface TranslationDict {
   catBeverages: string;
   catDesserts: string;
   catBags: string;
+  catFavorites: string;
+  favorites: string;
+  noFavoritesTitle: string;
+  noFavoritesDesc: string;
+  orderDelivered: string;
+  activeOrderBadge: string;
   
   // Auth
   login: string;
@@ -166,6 +172,12 @@ export const translations: Record<Language, TranslationDict> = {
     catBeverages: "เครื่องดื่มอุ่นๆ/เย็น",
     catDesserts: "ของหวานแสนอร่อย",
     catBags: "ถุงเก็บความเย็นเชียงใหม่",
+    catFavorites: "รายการโปรด",
+    favorites: "รายการโปรด",
+    noFavoritesTitle: "ยังไม่มีรายการโปรด",
+    noFavoritesDesc: "กดไอคอนหัวใจ ❤️ บนเมนูเพื่อบันทึกสินค้าที่คุณชื่นชอบไว้ที่นี่",
+    orderDelivered: "รับสินค้าสำเร็จ",
+    activeOrderBadge: "กำลังดำเนินการ",
     
     // Auth
     login: "เข้าสู่ระบบ",
@@ -296,6 +308,12 @@ export const translations: Record<Language, TranslationDict> = {
     catBeverages: "Beverages",
     catDesserts: "Desserts",
     catBags: "Chiang Mai Thermal Bags",
+    catFavorites: "Favorites",
+    favorites: "Favorites",
+    noFavoritesTitle: "No favorites yet",
+    noFavoritesDesc: "Tap the heart icon ❤️ on any menu item to save your favorite dishes here.",
+    orderDelivered: "Completed",
+    activeOrderBadge: "In Progress",
     
     // Auth
     login: "Login",
