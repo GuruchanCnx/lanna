@@ -30,6 +30,14 @@ export interface TranslationDict {
   languageLabel: string;
   
   // Categories
+  catSnacks: string;
+  catSauces: string;
+  catSoymilk: string;
+  catMilk: string;
+  catDrinks: string;
+  catGinger: string;
+  catToast: string;
+  catToppings: string;
   catDonuts: string;
   catBeverages: string;
   catDesserts: string;
@@ -179,10 +187,18 @@ export const translations: Record<Language, TranslationDict> = {
     languageLabel: "English",
     
     // Categories
+    catSnacks: "ของทานเล่น",
+    catSauces: "ซอส",
+    catSoymilk: "น้ำเต้าหู้",
+    catMilk: "นมสด",
+    catDrinks: "เครื่องดื่มร้อน/เย็น",
+    catGinger: "น้ำขิง & เต้าฮวย",
+    catToast: "ปังปิ้ง",
+    catToppings: "ท็อปปิ้ง",
     catDonuts: "ปาท่องโก๋และขนมปัง",
     catBeverages: "เครื่องดื่มอุ่นๆ/เย็น",
     catDesserts: "ของหวานแสนอร่อย",
-    catBags: "ถุงเก็บความเย็นเชียงใหม่",
+    catBags: "ถุงผ้าล้านนา",
     catFavorites: "รายการโปรด",
     favorites: "รายการโปรด",
     noFavoritesTitle: "ยังไม่มีรายการโปรด",
@@ -326,10 +342,18 @@ export const translations: Record<Language, TranslationDict> = {
     languageLabel: "ไทย",
     
     // Categories
+    catSnacks: "Snacks",
+    catSauces: "Sauces",
+    catSoymilk: "Soymilk",
+    catMilk: "Fresh Milk",
+    catDrinks: "Hot/Cold Drinks",
+    catGinger: "Ginger & Tofu",
+    catToast: "Toast",
+    catToppings: "Toppings",
     catDonuts: "Chinese Donuts & Bread",
     catBeverages: "Beverages",
     catDesserts: "Desserts",
-    catBags: "Chiang Mai Thermal Bags",
+    catBags: "Lanna Bags",
     catFavorites: "Favorites",
     favorites: "Favorites",
     noFavoritesTitle: "No favorites yet",

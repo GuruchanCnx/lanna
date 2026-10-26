@@ -1,4 +1,16 @@
-export type Category = 'donuts' | 'beverages' | 'desserts' | 'bags';
+export type Category = 
+  | 'snacks' 
+  | 'soymilk' 
+  | 'milk' 
+  | 'drinks' 
+  | 'ginger' 
+  | 'toast' 
+  | 'sauces' 
+  | 'toppings' 
+  | 'bags'
+  | 'donuts'
+  | 'beverages'
+  | 'desserts';
 
 export interface Product {
   id: string;
