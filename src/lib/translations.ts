@@ -106,6 +106,26 @@ export interface TranslationDict {
   save2baht: string;
   vesselsCount: string;
   
+  // Special requests & Allergies
+  specialInstructionsLabel: string;
+  specialInstructionsPlaceholder: string;
+  specialInstructionsChipLessSweet: string;
+  specialInstructionsChipNoSugar: string;
+  specialInstructionsChipSeparateIce: string;
+  specialInstructionsChipNutAllergy: string;
+  specialInstructionsNote: string;
+
+  // Loyalty Points
+  loyaltyTitle: string;
+  loyaltySubtitle: string;
+  loyaltyPointsUnit: string;
+  loyaltyRule: string;
+  loyaltyTierLabel: string;
+  loyaltyTierBronze: string;
+  loyaltyTierSilver: string;
+  loyaltyTierGold: string;
+  loyaltyNextPerk: string;
+  
   // Sharing
   shareTitle: string;
   sharePrompt: string;
@@ -262,7 +282,27 @@ export const translations: Record<Language, TranslationDict> = {
     baht: "บาท",
     save2baht: "ลด 2 บ.",
     vesselsCount: "จำนวนแก้วที่นำมาเอง",
-    
+
+    // Special requests & Allergies
+    specialInstructionsLabel: "ข้อความพิเศษ / ข้อมูลการแพ้อาหาร",
+    specialInstructionsPlaceholder: "ระบุความต้องการ เช่น หวานน้อยมาก, ไม่ใส่น้ำตาล, แยกน้ำแข็ง, แพ้ถั่วเหลือง/งา...",
+    specialInstructionsChipLessSweet: "หวานน้อย",
+    specialInstructionsChipNoSugar: "ไม่ใส่น้ำตาล",
+    specialInstructionsChipSeparateIce: "แยกน้ำแข็ง",
+    specialInstructionsChipNutAllergy: "แพ้ถั่ว/งา",
+    specialInstructionsNote: "หมายเหตุถึงร้านค้า",
+
+    // Loyalty Points
+    loyaltyTitle: "คะแนนสะสมล้านนา (Lanna Rewards)",
+    loyaltySubtitle: "สะสมแต้มทุกการสั่งซื้อ แลกรับปาท่องโก๋และส่วนลดพิเศษ",
+    loyaltyPointsUnit: "แต้มสะสม",
+    loyaltyRule: "ทุกการใช้จ่าย ฿10 ได้รับ 1 แต้ม",
+    loyaltyTierLabel: "ระดับสมาชิก",
+    loyaltyTierBronze: "ทองแดง (Bronze)",
+    loyaltyTierSilver: "เงินล้านนา (Silver)",
+    loyaltyTierGold: "ทองคำล้านนา (Gold VIP)",
+    loyaltyNextPerk: "อีก {points} แต้ม จะได้รับคูปองฟรีปาท่องโก๋ 2 ตัว!",
+
     // Sharing
     shareTitle: "แชร์ความอร่อย",
     sharePrompt: "แชร์ร้านน้ำเต้าหู้หายยาและถุงเก็บความเย็นล้านนาให้เพื่อนๆ",
@@ -417,7 +457,27 @@ export const translations: Record<Language, TranslationDict> = {
     baht: "Baht",
     save2baht: "Save ฿2",
     vesselsCount: "Vessels brought",
-    
+
+    // Special requests & Allergies
+    specialInstructionsLabel: "Special Requests / Allergy Information",
+    specialInstructionsPlaceholder: "Specify instructions (e.g. less sweet, no sugar, separate ice, soybean/sesame allergy)...",
+    specialInstructionsChipLessSweet: "Less Sweet",
+    specialInstructionsChipNoSugar: "No Sugar",
+    specialInstructionsChipSeparateIce: "Separate Ice",
+    specialInstructionsChipNutAllergy: "Nut/Sesame Allergy",
+    specialInstructionsNote: "Notes to Kitchen",
+
+    // Loyalty Points
+    loyaltyTitle: "Lanna Rewards Points",
+    loyaltySubtitle: "Earn points with every order to redeem delicious snacks & exclusive perks",
+    loyaltyPointsUnit: "Points",
+    loyaltyRule: "฿10 Spent = 1 Loyalty Point",
+    loyaltyTierLabel: "Member Tier",
+    loyaltyTierBronze: "Bronze Member",
+    loyaltyTierSilver: "Lanna Silver",
+    loyaltyTierGold: "Lanna Gold VIP",
+    loyaltyNextPerk: "{points} more points to unlock a free 2-pc Patongko voucher!",
+
     // Sharing
     shareTitle: "Share Deliciousness",
     sharePrompt: "Share Haiya Soy Milk & Lanna Thermal Bags with your friends",

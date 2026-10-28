@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   X, ShoppingBag, Plus, Minus, Check, ArrowRight, ShieldCheck, 
-  Clock, ArrowUpRight, Upload, Sparkles, Coffee, AlertCircle, RefreshCw, CheckCircle 
+  Clock, ArrowUpRight, Upload, Sparkles, Coffee, AlertCircle, RefreshCw, CheckCircle,
+  MessageSquare
 } from 'lucide-react';
 import { translations, Language } from '../lib/translations';
 import { CartItem, Order, UserProfile } from '../lib/types';
@@ -17,6 +18,7 @@ interface CartDrawerProps {
   currentUser: UserProfile | null;
   onLoginRequest: () => void;
   isSimple: boolean;
+  onOrderSuccess?: (order: Order) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -28,10 +30,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   lang,
   currentUser,
   onLoginRequest,
-  isSimple
+  isSimple,
+  onOrderSuccess
 }) => {
   const t = translations[lang];
   const [bringVessel, setBringVessel] = useState(false);
+  const [specialInstructions, setSpecialInstructions] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'promptpay' | 'cash'>('promptpay');
   const [step, setStep] = useState<'cart' | 'checkout' | 'tracking'>('cart');
   const [receipt, setFormReceipt] = useState<string>('');
@@ -40,9 +44,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   const [countdown, setCountdown] = useState(180); // 3 minutes for PromptPay
   const [trackingStatus, setTrackingStatus] = useState<'pending' | 'preparing' | 'ready' | 'completed'>('pending');
 
-  // Calculate totals
+  // Calculate totals - count all beverages (soymilk, milk, drinks, beverages)
   const beverageCount = cart.reduce((sum, item) => {
-    return item.product.isBeverage || item.product.category === 'beverages' 
+    return item.product.isBeverage || ['beverages', 'soymilk', 'milk', 'drinks'].includes(item.product.category) 
       ? sum + item.quantity 
       : sum;
   }, 0);
@@ -82,7 +86,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         nameEn: item.product.nameEn,
         price: item.product.price,
         quantity: item.quantity,
-        vesselDiscount: bringVessel && (item.product.isBeverage || item.product.category === 'beverages'),
+        vesselDiscount: bringVessel && (item.product.isBeverage || ['beverages', 'soymilk', 'milk', 'drinks'].includes(item.product.category)),
         options: item.options
       })),
       subtotal,
@@ -91,7 +95,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       paymentMethod,
       paymentSlip: receipt || undefined,
       status: 'pending',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      specialInstructions: specialInstructions.trim() || undefined
     };
 
     try {
@@ -99,6 +104,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       setActiveOrder(newOrder);
       setTrackingStatus('pending');
       setStep('tracking');
+      onOrderSuccess?.(newOrder);
       
       // Simulate Order Status Updates
       simulateOrderStatusFlow(newOrder.id);
@@ -146,6 +152,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     onClearCart();
     setStep('cart');
     setBringVessel(false);
+    setSpecialInstructions('');
     setFormReceipt('');
     setActiveOrder(null);
     setCountdown(180);
@@ -280,6 +287,68 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       </label>
                     </div>
                   )}
+
+                  {/* Special Requests / Allergy Information Input Area */}
+                  <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-lg">
+                          <MessageSquare className="w-4 h-4" />
+                        </div>
+                        <label 
+                          htmlFor="special-instructions-input"
+                          className="font-extrabold text-xs text-slate-800 dark:text-white flex items-center gap-1.5"
+                        >
+                          <span>{t.specialInstructionsLabel}</span>
+                        </label>
+                      </div>
+                      {specialInstructions && (
+                        <button
+                          type="button"
+                          onClick={() => setSpecialInstructions('')}
+                          className="text-[10px] text-slate-400 hover:text-rose-500 transition-colors cursor-pointer"
+                        >
+                          {lang === 'th' ? 'ล้างข้อความ' : 'Clear'}
+                        </button>
+                      )}
+                    </div>
+
+                    <textarea
+                      id="special-instructions-input"
+                      rows={2}
+                      value={specialInstructions}
+                      onChange={(e) => setSpecialInstructions(e.target.value)}
+                      placeholder={t.specialInstructionsPlaceholder}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-800 dark:text-white placeholder-slate-400 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all resize-none"
+                    />
+
+                    {/* Quick suggestion chips */}
+                    <div className="flex flex-wrap gap-1.5 pt-0.5">
+                      {[
+                        t.specialInstructionsChipLessSweet,
+                        t.specialInstructionsChipNoSugar,
+                        t.specialInstructionsChipSeparateIce,
+                        t.specialInstructionsChipNutAllergy
+                      ].map((chip) => (
+                        <button
+                          key={chip}
+                          type="button"
+                          onClick={() => {
+                            if (!specialInstructions.includes(chip)) {
+                              setSpecialInstructions(prev => prev ? `${prev}, ${chip}` : chip);
+                            }
+                          }}
+                          className={`text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all active:scale-95 cursor-pointer ${
+                            specialInstructions.includes(chip)
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-amber-300'
+                          }`}
+                        >
+                          + {chip}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
             </div>
@@ -452,6 +521,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                       ? "กรุณามารับสินค้าตามที่อยู่ร้านวัวลาย ซอย 2 และชำระเงินสดจำนวน ฿" + total + " เมื่อรับสินค้าเรียบร้อย"
                       : "Please pick up your items at Wua Lai Road Soi 2 and pay ฿" + total + " cash at the counter."}
                   </p>
+                </div>
+              )}
+
+              {/* Special Instructions Summary in Checkout */}
+              {specialInstructions.trim() && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-2.5 text-xs">
+                  <MessageSquare className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0">
+                    <span className="font-extrabold text-slate-800 dark:text-white block text-[11px]">
+                      {t.specialInstructionsNote}:
+                    </span>
+                    <p className="text-slate-600 dark:text-slate-300 text-[11px] break-words mt-0.5">
+                      "{specialInstructions.trim()}"
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

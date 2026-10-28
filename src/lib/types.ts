@@ -58,6 +58,7 @@ export interface Order {
   paymentSlip?: string; // image string or mock file name
   status: 'pending' | 'preparing' | 'ready' | 'completed';
   createdAt: string;
+  specialInstructions?: string; // Allergy info, less sweet, no sugar, etc.
 }
 
 export interface UserProfile {
@@ -67,4 +68,6 @@ export interface UserProfile {
   photoURL?: string;
   isAdmin: boolean;
   provider: 'email' | 'google' | 'apple';
+  loyaltyPoints?: number;
 }
+

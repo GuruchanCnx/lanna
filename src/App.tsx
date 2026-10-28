@@ -17,6 +17,8 @@ import { SimpleModeToggle } from './components/SimpleModeToggle';
 import { SocialShare } from './components/SocialShare';
 import { OrderStatusTracker } from './components/OrderStatusTracker';
 import { HeroImageModal } from './components/HeroImageModal';
+import { OrderSpendingChart } from './components/OrderSpendingChart';
+import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { Admin } from './pages/Admin';
 
 function App() {
@@ -32,6 +34,10 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
+
+  // Order Success & Tracking Modal State
+  const [recentOrderSuccess, setRecentOrderSuccess] = useState<Order | null>(null);
+  const [isOrderSuccessModalOpen, setIsOrderSuccessModalOpen] = useState(false);
 
   // Favorites & Menu filter states
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -211,7 +217,8 @@ function App() {
 
   // Cart Operations
   const handleAddToCart = (product: Product) => {
-    const options = product.isBeverage || product.category === 'beverages'
+    const isBeverageItem = product.isBeverage || ['beverages', 'soymilk', 'milk', 'drinks'].includes(product.category);
+    const options = isBeverageItem
       ? selectedBevOptions[product.id] || { temperature: 'hot', toppings: 'none' }
       : undefined;
 
@@ -287,7 +294,7 @@ function App() {
 
   // Render a single product card with favorite heart toggle
   const renderProductCard = (p: Product) => {
-    const isDrink = p.isBeverage || p.category === 'beverages';
+    const isDrink = p.isBeverage || ['beverages', 'soymilk', 'milk', 'drinks'].includes(p.category);
     const bevOptions = selectedBevOptions[p.id] || { temperature: 'hot', toppings: 'none' };
     const isFav = favorites.includes(p.id);
 
@@ -428,6 +435,18 @@ function App() {
     const matchDescEn = p.descriptionEn?.toLowerCase().includes(query);
     return matchNameTh || matchNameEn || matchDescTh || matchDescEn;
   });
+
+  const MENU_CATEGORIES: { id: Category; labelKey: keyof typeof t; icon: string; color: string; badgeColor: string }[] = [
+    { id: 'snacks', labelKey: 'catSnacks', icon: '🥢', color: 'bg-amber-500 text-white border-amber-500 ring-2 ring-amber-500/30', badgeColor: 'text-amber-600 bg-amber-50 dark:bg-amber-950/40 border-amber-500/20' },
+    { id: 'soymilk', labelKey: 'catSoymilk', icon: '🥛', color: 'bg-sky-500 text-white border-sky-500 ring-2 ring-sky-500/30', badgeColor: 'text-sky-600 bg-sky-50 dark:bg-sky-950/40 border-sky-500/20' },
+    { id: 'milk', labelKey: 'catMilk', icon: '🍶', color: 'bg-indigo-500 text-white border-indigo-500 ring-2 ring-indigo-500/30', badgeColor: 'text-indigo-600 bg-indigo-50 dark:bg-indigo-950/40 border-indigo-500/20' },
+    { id: 'drinks', labelKey: 'catDrinks', icon: '🧋', color: 'bg-orange-500 text-white border-orange-500 ring-2 ring-orange-500/30', badgeColor: 'text-orange-600 bg-orange-50 dark:bg-orange-950/40 border-orange-500/20' },
+    { id: 'ginger', labelKey: 'catGinger', icon: '🫚', color: 'bg-emerald-500 text-white border-emerald-500 ring-2 ring-emerald-500/30', badgeColor: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500/20' },
+    { id: 'toast', labelKey: 'catToast', icon: '🍞', color: 'bg-yellow-500 text-white border-yellow-500 ring-2 ring-yellow-500/30', badgeColor: 'text-yellow-600 bg-yellow-50 dark:bg-yellow-950/40 border-yellow-500/20' },
+    { id: 'sauces', labelKey: 'catSauces', icon: '🍯', color: 'bg-teal-500 text-white border-teal-500 ring-2 ring-teal-500/30', badgeColor: 'text-teal-600 bg-teal-50 dark:bg-teal-950/40 border-teal-500/20' },
+    { id: 'toppings', labelKey: 'catToppings', icon: '✨', color: 'bg-purple-500 text-white border-purple-500 ring-2 ring-purple-500/30', badgeColor: 'text-purple-600 bg-purple-50 dark:bg-purple-950/40 border-purple-500/20' },
+    { id: 'bags', labelKey: 'catBags', icon: '🛍️', color: 'bg-rose-500 text-white border-rose-500 ring-2 ring-rose-500/30', badgeColor: 'text-rose-600 bg-rose-50 dark:bg-rose-950/40 border-rose-500/20' },
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-300">
@@ -724,18 +743,21 @@ function App() {
               </div>
             ) : (
               <>
-                {/* Category selection */}
-                <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-none items-center">
+                {/* Responsive Category selection */}
+                <div className="flex gap-2 overflow-x-auto pb-2.5 -mx-4 px-4 scrollbar-none items-center touch-pan-x">
                   {/* All Filter */}
                   <button
                     onClick={() => setMenuFilter('all')}
-                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border cursor-pointer ${
+                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 cursor-pointer ${
                       menuFilter === 'all'
                         ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
                         : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
                     }`}
                   >
-                    {lang === 'th' ? "✨ ทั้งหมด" : "✨ All"}
+                    <span>✨ {lang === 'th' ? "ทั้งหมด" : "All"}</span>
+                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-black opacity-80 bg-slate-200/50 dark:bg-slate-800">
+                      {searchedProducts.length}
+                    </span>
                   </button>
 
                   {/* Favorites Filter */}
@@ -760,29 +782,37 @@ function App() {
                     )}
                   </button>
 
-                  {(['donuts', 'beverages', 'desserts', 'bags'] as Category[]).map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => {
-                        setMenuFilter(cat);
-                        const el = document.getElementById(`cat-section-${cat}`);
-                        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      }}
-                      className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border cursor-pointer ${
-                        menuFilter === cat
-                          ? cat === 'donuts' ? 'bg-amber-500 text-white border-amber-500 ring-2 ring-amber-500/30' :
-                            cat === 'beverages' ? 'bg-sky-500 text-white border-sky-500 ring-2 ring-sky-500/30' :
-                            cat === 'desserts' ? 'bg-emerald-500 text-white border-emerald-500 ring-2 ring-emerald-500/30' :
-                            'bg-rose-500 text-white border-rose-500 ring-2 ring-rose-500/30'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                      }`}
-                    >
-                      {cat === 'donuts' && t.catDonuts}
-                      {cat === 'beverages' && t.catBeverages}
-                      {cat === 'desserts' && t.catDesserts}
-                      {cat === 'bags' && t.catBags}
-                    </button>
-                  ))}
+                  {/* Dynamic Category Filter Pills */}
+                  {MENU_CATEGORIES.map((catItem) => {
+                    const count = searchedProducts.filter(p => p.category === catItem.id).length;
+                    if (count === 0 && query) return null;
+
+                    return (
+                      <button
+                        key={catItem.id}
+                        onClick={() => {
+                          setMenuFilter(catItem.id);
+                          const el = document.getElementById(`cat-section-${catItem.id}`);
+                          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }}
+                        className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 cursor-pointer ${
+                          menuFilter === catItem.id
+                            ? catItem.color
+                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <span>{catItem.icon}</span>
+                        <span>{t[catItem.labelKey] as string}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                          menuFilter === catItem.id
+                            ? 'bg-white/25 text-white'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                        }`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {/* Product categories list or Favorites view */}
@@ -837,28 +867,25 @@ function App() {
                     )}
                   </div>
                 ) : (
-                  (['donuts', 'beverages', 'desserts', 'bags'] as Category[])
-                    .filter(cat => menuFilter === 'all' || menuFilter === cat)
-                    .map((cat) => {
-                      const catProducts = searchedProducts.filter(p => p.category === cat);
+                  MENU_CATEGORIES
+                    .filter(catItem => menuFilter === 'all' || menuFilter === catItem.id)
+                    .map((catItem) => {
+                      const catProducts = searchedProducts.filter(p => p.category === catItem.id);
                       if (catProducts.length === 0) return null;
 
                       return (
-                        <div key={cat} id={`cat-section-${cat}`} className="space-y-4 pt-4">
-                          <h3 className={`font-black tracking-tight border-b pb-2 flex items-center gap-2 ${
-                            cat === 'donuts' ? 'text-amber-500 border-amber-500/10' :
-                            cat === 'beverages' ? 'text-sky-500 border-sky-500/10' :
-                            cat === 'desserts' ? 'text-emerald-500 border-emerald-500/10' :
-                            'text-rose-500 border-rose-500/10'
-                          } ${isSimple ? 'text-xl' : 'text-base'}`}>
-                            <span className="w-2.5 h-2.5 rounded-full bg-current"></span>
-                            <span>
-                              {cat === 'donuts' && t.catDonuts}
-                              {cat === 'beverages' && t.catBeverages}
-                              {cat === 'desserts' && t.catDesserts}
-                              {cat === 'bags' && t.catBags}
-                            </span>
-                          </h3>
+                        <div key={catItem.id} id={`cat-section-${catItem.id}`} className="space-y-4 pt-4">
+                          <div className="flex items-center justify-between border-b pb-2 border-slate-200/60 dark:border-slate-800">
+                            <h3 className={`font-black tracking-tight flex items-center gap-2 ${isSimple ? 'text-xl' : 'text-base'}`}>
+                              <span className="text-lg">{catItem.icon}</span>
+                              <span className="text-slate-900 dark:text-white font-extrabold">
+                                {t[catItem.labelKey] as string}
+                              </span>
+                              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold border ${catItem.badgeColor}`}>
+                                {catProducts.length} {t.itemsCount}
+                              </span>
+                            </h3>
+                          </div>
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                             {catProducts.map(renderProductCard)}
@@ -1045,6 +1072,9 @@ function App() {
                   </button>
                 </div>
 
+                {/* Order Spending Chart (Recharts visualization) */}
+                <OrderSpendingChart orders={userOrders} lang={lang} />
+
                 {/* Order History */}
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-4">
                   <h4 className="font-extrabold text-sm text-slate-800 dark:text-white flex items-center gap-2">
@@ -1223,6 +1253,12 @@ function App() {
         currentUser={currentUser} 
         onLoginRequest={() => setIsAuthModalOpen(true)} 
         isSimple={isSimple}
+        onOrderSuccess={(order) => {
+          setRecentOrderSuccess(order);
+          setIsOrderSuccessModalOpen(true);
+          setIsCartOpen(false);
+          fetchUserOrders();
+        }}
       />
 
       {/* HERO IMAGE EDIT & UPLOAD MODAL */}
@@ -1231,6 +1267,18 @@ function App() {
         onClose={() => setIsHeroModalOpen(false)}
         currentImage={heroImage}
         onSave={handleSaveHeroImage}
+        lang={lang}
+      />
+
+      {/* ORDER SUCCESS MODAL */}
+      <OrderSuccessModal
+        isOpen={isOrderSuccessModalOpen}
+        order={recentOrderSuccess}
+        onClose={() => setIsOrderSuccessModalOpen(false)}
+        onTrackOrder={() => {
+          setIsOrderSuccessModalOpen(false);
+          setActiveTab('profile');
+        }}
         lang={lang}
       />
 

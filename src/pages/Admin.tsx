@@ -305,10 +305,18 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
                   className="px-4 py-2.5 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-slate-800 dark:text-white text-xs focus:outline-none"
                 >
                   <option value="all">{lang === 'th' ? "ทุกหมวดหมู่" : "All Categories"}</option>
+                  <option value="snacks">{t.catSnacks}</option>
+                  <option value="soymilk">{t.catSoymilk}</option>
+                  <option value="milk">{t.catMilk}</option>
+                  <option value="drinks">{t.catDrinks}</option>
+                  <option value="ginger">{t.catGinger}</option>
+                  <option value="toast">{t.catToast}</option>
+                  <option value="sauces">{t.catSauces}</option>
+                  <option value="toppings">{t.catToppings}</option>
+                  <option value="bags">{t.catBags}</option>
                   <option value="donuts">{t.catDonuts}</option>
                   <option value="beverages">{t.catBeverages}</option>
                   <option value="desserts">{t.catDesserts}</option>
-                  <option value="bags">{t.catBags}</option>
                 </select>
               </div>
 
@@ -426,10 +434,18 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
                     onChange={(e) => setFormCategory(e.target.value as Category)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl text-slate-800 dark:text-white text-xs focus:outline-none"
                   >
+                    <option value="snacks">{t.catSnacks}</option>
+                    <option value="soymilk">{t.catSoymilk}</option>
+                    <option value="milk">{t.catMilk}</option>
+                    <option value="drinks">{t.catDrinks}</option>
+                    <option value="ginger">{t.catGinger}</option>
+                    <option value="toast">{t.catToast}</option>
+                    <option value="sauces">{t.catSauces}</option>
+                    <option value="toppings">{t.catToppings}</option>
+                    <option value="bags">{t.catBags}</option>
                     <option value="donuts">{t.catDonuts}</option>
                     <option value="beverages">{t.catBeverages}</option>
                     <option value="desserts">{t.catDesserts}</option>
-                    <option value="bags">{t.catBags}</option>
                   </select>
                 </div>
 
