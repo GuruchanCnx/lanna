@@ -3,7 +3,7 @@ import {
   Home as HomeIcon, Coffee, ShoppingBag, MapPin, ShieldCheck, 
   User, Sparkles, Phone, Check, Share2, Accessibility, 
   ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock,
-  Search, X, Camera
+  Search, X, Camera, MessageSquare
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
@@ -19,6 +19,7 @@ import { OrderStatusTracker } from './components/OrderStatusTracker';
 import { HeroImageModal } from './components/HeroImageModal';
 import { OrderSpendingChart } from './components/OrderSpendingChart';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
+import { LoyaltyPointsCard } from './components/LoyaltyPointsCard';
 import { Admin } from './pages/Admin';
 
 function App() {
@@ -1072,6 +1073,9 @@ function App() {
                   </button>
                 </div>
 
+                {/* Loyalty Points System (Calculates and displays points earned from total spending) */}
+                <LoyaltyPointsCard currentUser={currentUser} orders={userOrders} lang={lang} />
+
                 {/* Order Spending Chart (Recharts visualization) */}
                 <OrderSpendingChart orders={userOrders} lang={lang} />
 
@@ -1104,6 +1108,21 @@ function App() {
                             isSimple={isSimple}
                             onRefresh={fetchUserOrders}
                           />
+
+                          {/* Special Requests & Allergy Note if present */}
+                          {o.specialInstructions && (
+                            <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-2 text-xs">
+                              <MessageSquare className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                              <div className="flex-1 min-w-0">
+                                <span className="font-extrabold text-[11px] text-amber-800 dark:text-amber-300">
+                                  {lang === 'th' ? "คำขอพิเศษ / แพ้อาหาร:" : "Special Requests / Allergies:"}
+                                </span>{' '}
+                                <span className="text-slate-700 dark:text-slate-300 text-[11px]">
+                                  {o.specialInstructions}
+                                </span>
+                              </div>
+                            </div>
+                          )}
                           
                           {/* Items summary */}
                           <div className="space-y-1.5 pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
