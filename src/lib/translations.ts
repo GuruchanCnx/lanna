@@ -17,6 +17,7 @@ export interface TranslationDict {
   // Navigation
   navHome: string;
   navMenu: string;
+  navBestSellers: string;
   navBags: string;
   navAdmin: string;
   navMap: string;
@@ -194,6 +195,7 @@ export const translations: Record<Language, TranslationDict> = {
     // Navigation
     navHome: "หน้าแรก",
     navMenu: "เมนูอร่อย",
+    navBestSellers: "สินค้าขายดี",
     navBags: "ถุงล้านนา",
     navAdmin: "ผู้ดูแลระบบ",
     navMap: "แผนที่ร้าน",
@@ -369,6 +371,7 @@ export const translations: Record<Language, TranslationDict> = {
     // Navigation
     navHome: "Home",
     navMenu: "Menu",
+    navBestSellers: "Best Sellers",
     navBags: "Lanna Bags",
     navAdmin: "Admin Panel",
     navMap: "Shop Map",
