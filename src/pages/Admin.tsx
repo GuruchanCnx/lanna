@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Database, RefreshCw, Layers, Terminal, LayoutGrid, Plus, Edit2, Trash2, 
-  Save, X, ShieldAlert, CheckCircle, Play, AlertCircle, Trash, Code, Check 
+  Save, X, ShieldAlert, CheckCircle, Play, AlertCircle, Trash, Code, Check,
+  QrCode, MapPin, Sparkles, Settings
 } from 'lucide-react';
 import { translations, Language } from '../lib/translations';
 import { db } from '../lib/firebaseMock';
 import { Product, Category, UserProfile } from '../lib/types';
 import { ImageUploader } from '../components/ImageUploader';
 import { RichTextEditor } from '../components/RichTextEditor';
+import { StoreSettingsModal } from '../components/StoreSettingsModal';
+import { MapEditModal } from '../components/MapEditModal';
 
 interface AdminProps {
   lang: Language;
@@ -44,6 +47,10 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
   const [migrating, setMigrating] = useState(false);
   const [migrationLogs, setMigrationLogs] = useState<string[]>([]);
   const [firestoreLogs, setFirestoreLogs] = useState<any[]>([]);
+
+  // Modals for PromptPay & Map editing
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
 
   useEffect(() => {
     fetchProducts();
@@ -257,30 +264,55 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
           </div>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex bg-slate-100 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-              activeTab === 'inventory'
-                ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-            }`}
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span>{t.inventoryTitle}</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('migration')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all ${
-              activeTab === 'migration'
-                ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-            }`}
-          >
-            <RefreshCw className="w-4 h-4" />
-            <span>{t.supabaseToFirestore}</span>
-          </button>
+        {/* Tab Controls & Quick Tool Actions */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex bg-slate-100 dark:bg-slate-950 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-800/50">
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                activeTab === 'inventory'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>{t.inventoryTitle}</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('migration')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer ${
+                activeTab === 'migration'
+                  ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+              }`}
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>{t.supabaseToFirestore}</span>
+            </button>
+          </div>
+
+          {/* Quick Settings Tool Buttons */}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsSettingsOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white rounded-2xl font-bold text-xs transition-all active:scale-95 cursor-pointer border border-rose-500/20"
+              title="PromptPay & Social Settings"
+            >
+              <QrCode className="w-4 h-4" />
+              <span>{lang === 'th' ? 'ตั้งค่าพร้อมเพย์ & โซเชียล' : 'PromptPay Settings'}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setIsMapOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-2xl font-bold text-xs transition-all active:scale-95 cursor-pointer border border-slate-200 dark:border-slate-700"
+              title="Edit Shop Coordinates"
+            >
+              <MapPin className="w-4 h-4 text-rose-500" />
+              <span>{lang === 'th' ? 'พิกัดร้าน' : 'Coordinates'}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -754,6 +786,21 @@ export const Admin: React.FC<AdminProps> = ({ lang, currentUser, onLoginRequest,
           </div>
         </div>
       )}
+
+      {/* STORE SETTINGS MODAL */}
+      <StoreSettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        lang={lang}
+      />
+
+      {/* MAP EDIT MODAL */}
+      <MapEditModal
+        isOpen={isMapOpen}
+        onClose={() => setIsMapOpen(false)}
+        lang={lang}
+        onSaved={() => {}}
+      />
     </div>
   );
 };

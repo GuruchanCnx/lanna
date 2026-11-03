@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Home as HomeIcon, Coffee, ShoppingBag, MapPin, ShieldCheck, 
   User, Sparkles, Phone, Check, Share2, Accessibility, 
   ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock,
-  Search, X, Camera, MessageSquare
+  Search, X, Camera, MessageSquare, Flame, Settings as SettingsIcon
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
@@ -20,13 +20,16 @@ import { HeroImageModal } from './components/HeroImageModal';
 import { OrderSpendingChart } from './components/OrderSpendingChart';
 import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { LoyaltyPointsCard } from './components/LoyaltyPointsCard';
+import { BestSellersPage } from './components/BestSellersPage';
+import { OrderStatusToast, OrderStatusToastNotification } from './components/OrderStatusToast';
+import { StoreSettingsModal } from './components/StoreSettingsModal';
 import { Admin } from './pages/Admin';
 
 function App() {
   // Localization & Theme states
   const [lang, setLang] = useState<Language>('th');
   const [isSimple, setIsSimple] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'bags' | 'map' | 'admin' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'bestsellers' | 'bags' | 'map' | 'admin' | 'profile'>('home');
 
   // Auth & Database states
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -54,6 +57,13 @@ function App() {
 
   // Item customization state (for menu)
   const [selectedBevOptions, setSelectedBevOptions] = useState<Record<string, { temperature: 'hot' | 'cold', toppings: 'none' | 'with' }>>({});
+
+  // Store Settings Modal state
+  const [isStoreSettingsOpen, setIsStoreSettingsOpen] = useState(false);
+
+  // In-app Order Status Toast Alert state
+  const [orderToast, setOrderToast] = useState<OrderStatusToastNotification | null>(null);
+  const previousStatusesRef = useRef<Record<string, string>>({});
 
   const t = translations[lang];
 
@@ -117,8 +127,34 @@ function App() {
     if (!currentUser) return;
     const allOrders = await db.collection('orders').get() as Order[];
     const filtered = allOrders.filter(o => o.userId === currentUser.uid);
+
+    // Detect status transitions to trigger in-app toast alerts
+    filtered.forEach((order) => {
+      const prevStatus = previousStatusesRef.current[order.id];
+      if (prevStatus && prevStatus !== order.status) {
+        setOrderToast({
+          id: Math.random().toString(36).substring(2, 9),
+          orderId: order.id,
+          previousStatus: prevStatus,
+          newStatus: order.status,
+          timestamp: Date.now()
+        });
+      }
+      previousStatusesRef.current[order.id] = order.status;
+    });
+
     setUserOrders(filtered);
   };
+
+  // Auto-dismiss order toast after 6 seconds
+  useEffect(() => {
+    if (orderToast) {
+      const timer = setTimeout(() => {
+        setOrderToast(null);
+      }, 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [orderToast]);
 
   // Poll for updates if there are active (non-completed) orders
   useEffect(() => {
@@ -128,7 +164,7 @@ function App() {
 
     const interval = setInterval(() => {
       fetchUserOrders();
-    }, 3500);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [currentUser, userOrders]);
@@ -491,6 +527,16 @@ function App() {
 
             {/* Theme Toggle */}
             <ThemeToggle />
+
+            {/* Store Settings (PromptPay & Social Media) */}
+            <button
+              type="button"
+              onClick={() => setIsStoreSettingsOpen(true)}
+              title={lang === 'th' ? "ตั้งค่าพร้อมเพย์และโซเชียลมีเดีย" : "Store & PromptPay Settings"}
+              className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/50 dark:border-slate-700/50"
+            >
+              <SettingsIcon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+            </button>
           </div>
 
         </div>
@@ -900,77 +946,18 @@ function App() {
           </div>
         )}
 
-        {/* TAB 3: LANNA BAGS SHOWCASE */}
-        {activeTab === 'bags' && (
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300">
-              <div className="max-w-2xl mx-auto text-center space-y-3">
-                <div className="inline-flex p-3 bg-rose-500/10 text-rose-500 rounded-full">
-                  <Heart className="w-6 h-6 animate-pulse" />
-                </div>
-                <h2 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-white">
-                  {t.bagFeatureTitle}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  {t.bagFeatureDesc}
-                </p>
-              </div>
-            </div>
-
-            {/* Bags list */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {products.filter(p => p.category === 'bags').map((p) => {
-                const isFav = favorites.includes(p.id);
-                return (
-                  <div key={p.id} className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-100 dark:border-slate-800 flex flex-col justify-between transition-all hover:shadow-2xl relative group">
-                    <div className="relative aspect-square bg-slate-50 dark:bg-slate-950">
-                      <img src={p.image} alt={p.nameEn} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                      
-                      {/* Favorite Toggle Button */}
-                      <button
-                        type="button"
-                        onClick={(e) => handleToggleFavorite(p.id, e)}
-                        title={isFav ? (lang === 'th' ? "ลบออกจากรายการโปรด" : "Remove from favorites") : (lang === 'th' ? "เพิ่มในรายการโปรด" : "Add to favorites")}
-                        aria-label="Toggle favorite"
-                        className={`absolute top-3 right-3 z-10 w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-75 shadow-md ${
-                          isFav
-                            ? 'bg-rose-500 text-white shadow-rose-500/30 ring-2 ring-white/50 dark:ring-slate-900/50'
-                            : 'bg-white/85 dark:bg-slate-900/85 text-slate-400 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-900'
-                        }`}
-                      >
-                        <Heart className={`w-4 h-4 transition-transform ${isFav ? 'fill-current scale-110' : ''}`} />
-                      </button>
-
-                      <span className="absolute bottom-3 left-3 bg-rose-500 text-white text-xs font-black px-3 py-1 rounded-full shadow-md">
-                        ฿{p.price}
-                      </span>
-                    </div>
-
-                  <div className="p-5 space-y-4">
-                    <div>
-                      <h4 className="font-extrabold text-base text-slate-800 dark:text-white leading-tight">
-                        {lang === 'th' ? p.nameTh : p.nameEn}
-                      </h4>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
-                        {lang === 'th' ? p.descriptionTh : p.descriptionEn}
-                      </p>
-                    </div>
-
-                    <div className="pt-2">
-                      <button
-                        onClick={() => handleAddToCart(p)}
-                        className="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-xl text-xs transition-all active:scale-95 shadow-lg shadow-rose-500/10 flex items-center justify-center gap-1.5"
-                      >
-                        <ShoppingBag className="w-4 h-4" />
-                        <span>{lang === 'th' ? "สั่งซื้อถุงผ้านี้" : "Order This Bag"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          </div>
+        {/* TAB 3: BEST SELLERS PRODUCT PAGE (Replacing Lanna Bags) */}
+        {(activeTab === 'bestsellers' || activeTab === 'bags') && (
+          <BestSellersPage
+            products={products}
+            lang={lang}
+            isSimple={isSimple}
+            favorites={favorites}
+            onToggleFavorite={handleToggleFavorite}
+            onAddToCart={handleAddToCart}
+            selectedBevOptions={selectedBevOptions}
+            onSelectOption={handleOptionChange}
+          />
         )}
 
         {/* TAB 4: SHOP MAP */}
@@ -1197,17 +1184,17 @@ function App() {
             <span className="text-[9px] tracking-tight">{t.navMenu}</span>
           </button>
 
-          {/* Traditional Bags Tab */}
+          {/* Best Sellers Tab (Replacing Traditional Bags) */}
           <button
-            onClick={() => setActiveTab('bags')}
+            onClick={() => setActiveTab('bestsellers')}
             className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
-              activeTab === 'bags' 
+              activeTab === 'bestsellers' || activeTab === 'bags'
                 ? 'text-rose-500 font-extrabold' 
                 : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{t.navBags}</span>
+            <Flame className="w-5 h-5" />
+            <span className="text-[9px] tracking-tight">{t.navBestSellers}</span>
           </button>
 
           {/* Map Tab */}
@@ -1298,6 +1285,24 @@ function App() {
           setIsOrderSuccessModalOpen(false);
           setActiveTab('profile');
         }}
+        lang={lang}
+      />
+
+      {/* IN-APP REALTIME ORDER STATUS TOAST NOTIFICATION */}
+      <OrderStatusToast
+        notification={orderToast}
+        onClose={() => setOrderToast(null)}
+        onViewOrder={() => {
+          setOrderToast(null);
+          setActiveTab('profile');
+        }}
+        lang={lang}
+      />
+
+      {/* STORE SETTINGS MODAL (PromptPay & Social Media Settings) */}
+      <StoreSettingsModal
+        isOpen={isStoreSettingsOpen}
+        onClose={() => setIsStoreSettingsOpen(false)}
         lang={lang}
       />
 

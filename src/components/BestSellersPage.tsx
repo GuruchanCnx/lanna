@@ -3,8 +3,8 @@ import {
   Flame, Award, Star, TrendingUp, Sparkles, Heart, Plus, ShoppingBag, 
   Check, Coffee, ChevronRight, Zap, Filter
 } from 'lucide-react';
-import { Product, Language } from '../lib/types';
-import { translations } from '../lib/translations';
+import { Product } from '../lib/types';
+import { translations, Language } from '../lib/translations';
 
 interface BestSellersPageProps {
   products: Product[];

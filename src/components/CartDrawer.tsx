@@ -7,6 +7,7 @@ import {
 import { translations, Language } from '../lib/translations';
 import { CartItem, Order, UserProfile } from '../lib/types';
 import { db } from '../lib/firebaseMock';
+import { getStoreSettings } from '../lib/storeSettings';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -460,8 +461,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     </div>
                   </div>
 
+                  <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 text-left text-xs space-y-1">
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{lang === 'th' ? 'ชื่อบัญชี' : 'Account Name'}</span>
+                      <span className="font-extrabold text-slate-800 dark:text-white text-[11px] truncate">{getStoreSettings().promptpay.accountName}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{lang === 'th' ? 'พร้อมเพย์' : 'PromptPay ID'}</span>
+                      <span className="font-mono font-black text-rose-500 text-xs">{getStoreSettings().promptpay.accountNumber}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase">{lang === 'th' ? 'ธนาคาร' : 'Bank'}</span>
+                      <span className="text-[10px] text-slate-600 dark:text-slate-300 font-medium">{getStoreSettings().promptpay.bankName}</span>
+                    </div>
+                  </div>
+
                   <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-tight">
-                    {t.promptPayInstructions}
+                    {getStoreSettings().promptpay.promptPayNote || t.promptPayInstructions}
                   </p>
 
                   {/* Slip Upload */}
