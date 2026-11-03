@@ -1019,6 +1019,36 @@ class FirebaseFirestoreSimulator {
     return user;
   }
 
+  public async loginWithLINE(): Promise<UserProfile> {
+    const user: UserProfile = {
+      uid: "line_" + Math.random().toString(36).substring(2, 9),
+      email: "chiangmai.friend@line.me",
+      displayName: "LINE Member Chiang Mai",
+      photoURL: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150",
+      isAdmin: false,
+      provider: 'line'
+    };
+    this.currentUser = user;
+    this.saveUser();
+    this.logFirestoreOp(`Auth: LINE OAuth Login`, `await signInWithPopup(auth, new OAuthProvider('line.me'));`);
+    return user;
+  }
+
+  public async loginWithFacebook(): Promise<UserProfile> {
+    const user: UserProfile = {
+      uid: "facebook_" + Math.random().toString(36).substring(2, 9),
+      email: "wualai.foodie@facebook.com",
+      displayName: "Chiang Mai Foodie",
+      photoURL: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&q=80&w=150",
+      isAdmin: false,
+      provider: 'facebook'
+    };
+    this.currentUser = user;
+    this.saveUser();
+    this.logFirestoreOp(`Auth: Facebook OAuth Login`, `await signInWithPopup(auth, new FacebookAuthProvider());`);
+    return user;
+  }
+
   public async quickAdminDemo(): Promise<UserProfile> {
     this.currentUser = DEFAULT_USER;
     this.saveUser();

@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
-import { Product, CartItem, Order, UserProfile, Category } from './lib/types';
+import { Product, CartItem, Order, UserProfile, Category, OrderFeedback } from './lib/types';
 import { MapComponent } from './components/MapComponent';
 import { AuthModal } from './components/AuthModal';
 import { CartDrawer } from './components/CartDrawer';
@@ -24,6 +24,7 @@ import { LoyaltyPointsCard } from './components/LoyaltyPointsCard';
 import { BestSellersPage } from './components/BestSellersPage';
 import { OrderStatusToast, OrderStatusToastNotification } from './components/OrderStatusToast';
 import { StoreSettingsModal } from './components/StoreSettingsModal';
+import { OrderFeedbackCard } from './components/OrderFeedbackCard';
 import { Admin } from './pages/Admin';
 
 function App() {
@@ -383,6 +384,13 @@ function App() {
     return true;
   };
 
+  // Update state when feedback is saved for an order
+  const handleFeedbackSaved = (orderId: string, feedback: OrderFeedback) => {
+    setUserOrders((prev) =>
+      prev.map((o) => (o.id === orderId ? { ...o, feedback } : o))
+    );
+  };
+
   // Handle drink options
   const handleOptionChange = (productId: string, key: 'temperature' | 'toppings', value: any) => {
     setSelectedBevOptions((prev) => {
@@ -605,6 +613,33 @@ function App() {
             >
               <SettingsIcon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             </button>
+
+            {/* Quick OAuth Login / Profile Avatar */}
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={() => setActiveTab('profile')}
+                className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500/20 transition-all cursor-pointer border border-rose-500/20 shadow-sm"
+                title={`${currentUser.displayName} (${currentUser.provider})`}
+              >
+                <img
+                  src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"}
+                  alt={currentUser.displayName}
+                  className="w-5 h-5 rounded-full object-cover"
+                />
+                <span className="hidden md:inline max-w-[80px] truncate">{currentUser.displayName.split(' ')[0]}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="px-3 py-2 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm shadow-rose-500/20 flex items-center gap-1.5"
+                title="OAuth 2.0 Login / Demo Admin"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{t.login}</span>
+              </button>
+            )}
           </div>
 
         </div>
@@ -632,23 +667,56 @@ function App() {
         {activeTab === 'home' && (
           <div className="space-y-6">
             {/* Hero banner */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-100 dark:border-slate-800 grid grid-cols-1 md:grid-cols-2 transition-all duration-300">
+            <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-100 dark:border-slate-800 grid grid-cols-1 lg:grid-cols-2 transition-all duration-300">
               <div className="p-6 md:p-10 flex flex-col justify-center space-y-4">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 rounded-full text-xs font-black self-start">
                   <Sparkles className="w-4 h-4" />
                   <span>{t.tagline}</span>
                 </div>
                 
-                <h2 className="text-3xl md:text-4xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
-                  {lang === 'th' ? "ถุงเก็บความเย็นล้านนา" : "Lanna Traditional Bags"}
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
+                  {t.heroEditorialTitle}
                 </h2>
                 
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
                   {t.slogan}
                 </p>
 
+                {/* 3 Soy Milk Health & Nutrition Highlights */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <div className="p-2.5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-emerald-700 dark:text-emerald-300">
+                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                      <span>{lang === 'th' ? 'โปรตีนสมบูรณ์' : 'Complete Protein'}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight font-medium">
+                      {t.soymilkBenefitPill1}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl">
+                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-amber-700 dark:text-amber-300">
+                      <Heart className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                      <span>{lang === 'th' ? 'หัวใจ & หลอดเลือด' : 'Cardiovascular'}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight font-medium">
+                      {t.soymilkBenefitPill2}
+                    </p>
+                  </div>
+
+                  <div className="p-2.5 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 rounded-2xl">
+                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-rose-700 dark:text-rose-300">
+                      <Sparkles className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+                      <span>{lang === 'th' ? 'ย่อยง่าย สบายท้อง' : 'Smooth Digestion'}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight font-medium">
+                      {t.soymilkBenefitPill3}
+                    </p>
+                  </div>
+                </div>
+
                 {/* Vessel Discount Callout */}
-                <div className="p-4 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 rounded-2xl flex items-center gap-3">
+                <div className="p-3.5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/15 rounded-2xl flex items-center gap-3">
                   <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
                     <Coffee className="w-5 h-5 animate-pulse" />
                   </div>
@@ -658,12 +726,13 @@ function App() {
                   </div>
                 </div>
 
-                <div className="pt-2">
+                {/* CTA Button Aligned With Editorial */}
+                <div className="pt-1">
                   <button
                     onClick={() => setActiveTab('menu')}
-                    className="px-6 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/10 transition-all flex items-center gap-2 active:scale-95 text-sm"
+                    className="w-full sm:w-auto px-6 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 text-xs sm:text-sm cursor-pointer"
                   >
-                    <span>{lang === 'th' ? "สั่งซื้อน้ำเต้าหู้ & ถุงผ้า" : "Order Soy Milk & Bags"}</span>
+                    <span>{t.heroCtaText}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
@@ -1087,9 +1156,10 @@ function App() {
                 </div>
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/10 transition-all active:scale-95 text-sm"
+                  className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/20 transition-all active:scale-95 text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  {t.login}
+                  <LogIn className="w-4 h-4" />
+                  <span>{lang === 'th' ? "เข้าสู่ระบบด้วย OAuth 2.0 / Admin Demo" : "Sign In with OAuth 2.0 / Admin Demo"}</span>
                 </button>
               </div>
             ) : (
@@ -1108,13 +1178,24 @@ function App() {
                     <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
                       {currentUser.email}
                     </p>
-                    <div className="flex gap-1.5 mt-1.5">
-                      <span className="bg-rose-500/10 text-rose-500 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-                        {currentUser.provider}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1 ${
+                        currentUser.provider === 'google'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                          : currentUser.provider === 'apple'
+                          ? 'bg-slate-500/10 text-slate-800 dark:text-slate-200 border border-slate-500/20'
+                          : currentUser.provider === 'line'
+                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                          : currentUser.provider === 'facebook'
+                          ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                          : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                      }`}>
+                        <span>OAuth:</span>
+                        <span>{currentUser.provider}</span>
                       </span>
                       {currentUser.isAdmin && (
-                        <span className="bg-emerald-500/10 text-emerald-500 text-[9px] font-black px-2 py-0.5 rounded-full uppercase">
-                          Admin
+                        <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase border border-emerald-500/30">
+                          Admin Demo Access
                         </span>
                       )}
                     </div>
@@ -1365,6 +1446,18 @@ function App() {
                                   </button>
                                 )}
                               </div>
+
+                              {/* Post-order feedback component for completed orders (ratings & comments saved to Firestore) */}
+                              {o.status === 'completed' && (
+                                <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                                  <OrderFeedbackCard
+                                    order={o}
+                                    lang={lang}
+                                    isSimple={isSimple}
+                                    onFeedbackSaved={handleFeedbackSaved}
+                                  />
+                                </div>
+                              )}
                             </div>
                           );
                         })}

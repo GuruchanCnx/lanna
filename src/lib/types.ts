@@ -35,6 +35,12 @@ export interface CartItem {
   };
 }
 
+export interface OrderFeedback {
+  rating: number; // 1 to 5 stars
+  comment?: string;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   userId: string;
@@ -59,7 +65,10 @@ export interface Order {
   status: 'pending' | 'preparing' | 'ready' | 'completed';
   createdAt: string;
   specialInstructions?: string; // Allergy info, less sweet, no sugar, etc.
+  feedback?: OrderFeedback;
 }
+
+export type AuthProvider = 'email' | 'google' | 'apple' | 'line' | 'facebook';
 
 export interface UserProfile {
   uid: string;
@@ -67,7 +76,7 @@ export interface UserProfile {
   displayName: string;
   photoURL?: string;
   isAdmin: boolean;
-  provider: 'email' | 'google' | 'apple';
+  provider: AuthProvider;
   loyaltyPoints?: number;
 }
 

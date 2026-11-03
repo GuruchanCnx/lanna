@@ -4,6 +4,11 @@ export interface TranslationDict {
   appName: string;
   slogan: string;
   tagline: string;
+  heroEditorialTitle: string;
+  heroCtaText: string;
+  soymilkBenefitPill1: string;
+  soymilkBenefitPill2: string;
+  soymilkBenefitPill3: string;
   bagFeatureTitle: string;
   bagFeatureDesc: string;
   bringVesselTitle: string;
@@ -180,8 +185,13 @@ export interface TranslationDict {
 export const translations: Record<Language, TranslationDict> = {
   th: {
     appName: "น้ำเต้าหู้หายยา & ถุงเก็บความเย็นล้านนา",
-    slogan: "สืบสานตำนานเชียงใหม่ ถุงเก็บความร้อน-เย็นที่เบากว่า พกพาง่ายกว่า และเก็บอุณหภูมิได้ดีเยี่ยม",
-    tagline: "ของอร่อยหายยา คู่ถุงผ้าเชียงใหม่รักษ์โลก",
+    slogan: "น้ำเต้าหู้สดคั้นมืออุดมด้วยโปรตีนจากพืชคุณภาพสูง ไอโซฟลาโวน และสารต้านอนุมูลอิสระ ช่วยลดระดับคอเลสเตอรอล บำรุงหลอดเลือดหัวใจ เสริมสร้างมวลกระดูก และปรับสมดุลระบบย่อยอาหารอย่างเป็นธรรมชาติเมื่อดื่มเป็นประจำทุกวัน",
+    tagline: "🌱 ศาสตร์แห่งการฟื้นฟูสุขภาพ: คุณค่าบริสุทธิ์จากถั่วเหลืองธรรมชาติ 100%",
+    heroEditorialTitle: "พลังสารอาหารและคุณประโยชน์แท้ เพื่อผู้ที่ดื่มน้ำเต้าหู้เป็นประจำ",
+    heroCtaText: "ดื่มเพื่อสุขภาพที่ดี • สั่งน้ำเต้าหู้คั้นสดทันที",
+    soymilkBenefitPill1: "โปรตีนพืชสมบูรณ์ 8g+ ซ่อมแซมกล้ามเนื้อ",
+    soymilkBenefitPill2: "ไอโซฟลาโวน ลดคอเลสเตอรอล & ชะลอวัย",
+    soymilkBenefitPill3: "0% แลคโตส ย่อยง่าย สบายท้อง สุขภาพดี",
     bagFeatureTitle: "ถุงเก็บความเย็น/ร้อนล้านนา (เชียงใหม่)",
     bagFeatureDesc: "ออกแบบตามภูมิปัญญาชาวเชียงใหม่ น้ำหนักเบาพิเศษ พกพาสะดวก ช่วยรักษาอุณหภูมิเครื่องดื่มร้อนหรือเย็นได้นานกว่า 6 ชั่วโมง ผลิตจากผ้าทอพื้นเมืองวัวลาย",
     bringVesselTitle: "ลดทันที 2 บาท! เมื่อนำแก้วมาเอง",
@@ -356,8 +366,13 @@ export const translations: Record<Language, TranslationDict> = {
   },
   en: {
     appName: "Haiya Soy Milk & Lanna Thermal Bags",
-    slogan: "Chiang Mai traditional insulation bags - lighter, faster, keeping drinks icy cold or piping hot.",
-    tagline: "Delicious Haiya Soy Milk paired with eco-friendly Chiang Mai bags",
+    slogan: "Freshly simmered whole-bean soy milk delivers complete plant protein, active isoflavones, and cellular antioxidants that naturally reduce LDL cholesterol, safeguard cardiovascular health, strengthen bone density, and promote smooth gut vitality for daily drinkers.",
+    tagline: "🌱 Plant-Powered Wellness Ritual: 100% Pure Natural Nutrition",
+    heroEditorialTitle: "The Science of Daily Soy Milk: Nutrition & Vitality for Regular Drinkers",
+    heroCtaText: "Boost Your Daily Health • Order Fresh Soy Milk",
+    soymilkBenefitPill1: "8g+ Complete Plant Protein & Muscle Recovery",
+    soymilkBenefitPill2: "Active Isoflavones • Lower Cholesterol & Longevity",
+    soymilkBenefitPill3: "0% Lactose • Smooth Digestion & Bone Synergy",
     bagFeatureTitle: "Lanna Traditional Thermal Bags",
     bagFeatureDesc: "Designed inspired by Chiang Mai heritage. Ultra-lightweight, easy to carry, keeping beverages cold or hot for over 6 hours. Crafted from authentic Wua Lai local handwoven textiles.",
     bringVesselTitle: "Save 2 Baht! Bring Your Own Vessel",
