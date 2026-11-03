@@ -3,7 +3,8 @@ import {
   Home as HomeIcon, Coffee, ShoppingBag, MapPin, ShieldCheck, 
   User, Sparkles, Phone, Check, Share2, Accessibility, 
   ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock,
-  Search, X, Camera, MessageSquare, Flame, Settings as SettingsIcon
+  Search, X, Camera, MessageSquare, Flame, Settings as SettingsIcon,
+  RotateCcw, Filter, Calendar
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
@@ -38,6 +39,10 @@ function App() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [userOrders, setUserOrders] = useState<Order[]>([]);
+
+  // Order History Filter states
+  const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | 'pending' | 'preparing' | 'ready' | 'completed'>('all');
+  const [orderDateFilter, setOrderDateFilter] = useState<'all' | 'today' | '7days' | '30days'>('all');
 
   // Order Success & Tracking Modal State
   const [recentOrderSuccess, setRecentOrderSuccess] = useState<Order | null>(null);
@@ -313,6 +318,69 @@ function App() {
 
   const handleClearCart = () => {
     setCart([]);
+  };
+
+  // Reorder items from a previous order into current cart
+  const handleReorder = (order: Order) => {
+    setCart((prevCart) => {
+      const updated = [...prevCart];
+      order.items.forEach((item) => {
+        const existingProduct = products.find((p) => p.id === item.productId) || {
+          id: item.productId,
+          nameTh: item.nameTh,
+          nameEn: item.nameEn,
+          price: item.price,
+          category: 'snacks' as Category,
+          stock: 99,
+          image: '/images/chiangmai-bag.png',
+          isBeverage: !!item.options
+        };
+
+        const existingIdx = updated.findIndex(
+          (ci) => ci.product.id === item.productId && JSON.stringify(ci.options) === JSON.stringify(item.options)
+        );
+
+        if (existingIdx !== -1) {
+          updated[existingIdx].quantity += item.quantity;
+        } else {
+          updated.push({
+            product: existingProduct,
+            quantity: item.quantity,
+            vesselDiscount: item.vesselDiscount || false,
+            options: item.options
+          });
+        }
+      });
+      return updated;
+    });
+
+    // Open Cart Drawer so user can immediately review and checkout
+    setIsCartOpen(true);
+  };
+
+  // Helper to check if an order's createdAt is within chosen filter range
+  const isWithinDateRange = (createdAt: string, range: 'all' | 'today' | '7days' | '30days') => {
+    if (range === 'all') return true;
+    const orderDate = new Date(createdAt);
+    if (isNaN(orderDate.getTime())) return true;
+    const now = new Date();
+
+    if (range === 'today') {
+      return (
+        orderDate.getFullYear() === now.getFullYear() &&
+        orderDate.getMonth() === now.getMonth() &&
+        orderDate.getDate() === now.getDate()
+      );
+    }
+
+    const diffMs = now.getTime() - orderDate.getTime();
+    if (range === '7days') {
+      return diffMs >= 0 && diffMs <= 7 * 24 * 60 * 60 * 1000;
+    }
+    if (range === '30days') {
+      return diffMs >= 0 && diffMs <= 30 * 24 * 60 * 60 * 1000;
+    }
+    return true;
   };
 
   // Handle drink options
@@ -1066,71 +1134,243 @@ function App() {
                 {/* Order Spending Chart (Recharts visualization) */}
                 <OrderSpendingChart orders={userOrders} lang={lang} />
 
-                {/* Order History */}
+                {/* Order History with Status & Date Filtering */}
                 <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-4">
-                  <h4 className="font-extrabold text-sm text-slate-800 dark:text-white flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-rose-500" />
-                    <span>{lang === 'th' ? "ประวัติการสั่งซื้อของคุณ" : "Your Order History"}</span>
-                  </h4>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-150 dark:border-slate-800 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-rose-500" />
+                      <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">
+                        {lang === 'th' ? "ประวัติการสั่งซื้อของคุณ" : "Your Order History"}
+                      </h4>
+                      <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {userOrders.length}
+                      </span>
+                    </div>
 
+                    {(orderStatusFilter !== 'all' || orderDateFilter !== 'all') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrderStatusFilter('all');
+                          setOrderDateFilter('all');
+                        }}
+                        className="self-start sm:self-auto text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>{lang === 'th' ? "ล้างตัวกรองทั้งหมด" : "Reset Filters"}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter Controls Bar */}
+                  {userOrders.length > 0 && (
+                    <div className="space-y-3 p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80">
+                      {/* 1. Status Filter Pills */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                          <Filter className="w-3 h-3 text-rose-500" />
+                          <span>{lang === 'th' ? "สถานะคำสั่งซื้อ:" : "Filter by Status:"}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { id: 'all', labelTh: 'ทั้งหมด', labelEn: 'All', count: userOrders.length },
+                            { id: 'pending', labelTh: 'รอยืนยัน', labelEn: 'Pending', count: userOrders.filter(o => o.status === 'pending').length },
+                            { id: 'preparing', labelTh: 'กำลังปรุง', labelEn: 'Preparing', count: userOrders.filter(o => o.status === 'preparing').length },
+                            { id: 'ready', labelTh: 'พร้อมรับ', labelEn: 'Ready', count: userOrders.filter(o => o.status === 'ready').length },
+                            { id: 'completed', labelTh: 'เสร็จสิ้น', labelEn: 'Completed', count: userOrders.filter(o => o.status === 'completed').length },
+                          ].map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => setOrderStatusFilter(item.id as any)}
+                              className={`text-[11px] font-bold px-3 py-1.5 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer ${
+                                orderStatusFilter === item.id
+                                  ? 'bg-rose-500 text-white shadow-sm shadow-rose-500/20'
+                                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 hover:border-rose-300'
+                              }`}
+                            >
+                              <span>{lang === 'th' ? item.labelTh : item.labelEn}</span>
+                              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
+                                orderStatusFilter === item.id
+                                  ? 'bg-white/20 text-white'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                              }`}>
+                                {item.count}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* 2. Date Range Filter Pills */}
+                      <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-800/60">
+                        <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                          <Calendar className="w-3 h-3 text-amber-500" />
+                          <span>{lang === 'th' ? "ช่วงเวลา:" : "Filter by Date Range:"}</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {[
+                            { id: 'all', labelTh: 'ทุกช่วงเวลา', labelEn: 'All Time' },
+                            { id: 'today', labelTh: 'วันนี้', labelEn: 'Today' },
+                            { id: '7days', labelTh: '7 วันล่าสุด', labelEn: 'Past 7 Days' },
+                            { id: '30days', labelTh: '30 วันล่าสุด', labelEn: 'Past 30 Days' },
+                          ].map((range) => (
+                            <button
+                              key={range.id}
+                              type="button"
+                              onClick={() => setOrderDateFilter(range.id as any)}
+                              className={`text-[11px] font-bold px-3 py-1 rounded-xl transition-all active:scale-95 cursor-pointer ${
+                                orderDateFilter === range.id
+                                  ? 'bg-amber-500 text-white shadow-sm shadow-amber-500/20'
+                                  : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-800 hover:border-amber-300'
+                              }`}
+                            >
+                              <span>{lang === 'th' ? range.labelTh : range.labelEn}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Render Orders List or Empty States */}
                   {userOrders.length === 0 ? (
                     <div className="text-center py-8 text-xs text-slate-400 dark:text-slate-500 italic">
                       {lang === 'th' ? "ไม่มีประวัติการสั่งซื้อ" : "No orders placed yet."}
                     </div>
-                  ) : (
-                    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                      {userOrders.map((o) => (
-                        <div key={o.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-3.5 shadow-sm">
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-400">
-                            <span className="font-mono text-[11px] text-slate-500">#{o.id}</span>
-                            <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800 px-2.5 py-0.5 rounded-full text-slate-600 dark:text-slate-300 font-medium">
-                              {o.paymentMethod === 'promptpay' ? 'PromptPay' : (lang === 'th' ? 'เงินสด' : 'Cash')}
-                            </span>
+                  ) : (() => {
+                    const filtered = userOrders.filter((o) => {
+                      const matchesStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
+                      const matchesDate = isWithinDateRange(o.createdAt, orderDateFilter);
+                      return matchesStatus && matchesDate;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div className="text-center py-10 px-4 bg-slate-50/50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                          <Filter className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                          <div className="space-y-1">
+                            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                              {lang === 'th' ? "ไม่พบคำสั่งซื้อที่ตรงกับตัวกรองที่เลือก" : "No orders match your selected filters"}
+                            </p>
+                            <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                              {lang === 'th' ? "ลองปรับเปลี่ยนสถานะหรือช่วงเวลาการสั่งซื้อ" : "Try adjusting the status or date range filter"}
+                            </p>
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOrderStatusFilter('all');
+                              setOrderDateFilter('all');
+                            }}
+                            className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            <span>{lang === 'th' ? "รีเซ็ตตัวกรองทั้งหมด" : "Clear All Filters"}</span>
+                          </button>
+                        </div>
+                      );
+                    }
 
-                          {/* Order Status Visual Tracker */}
-                          <OrderStatusTracker
-                            order={o}
-                            lang={lang}
-                            isSimple={isSimple}
-                            onRefresh={fetchUserOrders}
-                          />
+                    return (
+                      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                        {filtered.map((o) => {
+                          const orderDateObj = new Date(o.createdAt);
+                          const dateDisplay = !isNaN(orderDateObj.getTime())
+                            ? orderDateObj.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })
+                            : o.createdAt;
 
-                          {/* Special Requests & Allergy Note if present */}
-                          {o.specialInstructions && (
-                            <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-2 text-xs">
-                              <MessageSquare className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                              <div className="flex-1 min-w-0">
-                                <span className="font-extrabold text-[11px] text-amber-800 dark:text-amber-300">
-                                  {lang === 'th' ? "คำขอพิเศษ / แพ้อาหาร:" : "Special Requests / Allergies:"}
-                                </span>{' '}
-                                <span className="text-slate-700 dark:text-slate-300 text-[11px]">
-                                  {o.specialInstructions}
+                          return (
+                            <div key={o.id} className="p-4 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-3xl space-y-3.5 shadow-sm">
+                              <div className="flex items-center justify-between text-xs font-bold text-slate-400">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">#{o.id}</span>
+                                  <span className="text-[10px] text-slate-400 font-medium">
+                                    • {dateDisplay}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] bg-slate-200/60 dark:bg-slate-800 px-2.5 py-0.5 rounded-full text-slate-600 dark:text-slate-300 font-medium">
+                                  {o.paymentMethod === 'promptpay' ? 'PromptPay' : (lang === 'th' ? 'เงินสด' : 'Cash')}
                                 </span>
                               </div>
-                            </div>
-                          )}
-                          
-                          {/* Items summary */}
-                          <div className="space-y-1.5 pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
-                            {o.items.map((item, idx) => (
-                              <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-300">
-                                <span>{lang === 'th' ? item.nameTh : item.nameEn} x{item.quantity}</span>
-                                <span>฿{item.price * item.quantity}</span>
-                              </div>
-                            ))}
-                          </div>
 
-                          <div className="flex justify-between items-center pt-2 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
-                            <span className="font-bold text-slate-400">
-                              {lang === 'th' ? "ยอดรวมทั้งสิ้น" : "Total"}
-                            </span>
-                            <span className="font-black text-rose-500 text-sm">฿{o.total}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                              {/* Order Status Visual Tracker */}
+                              <OrderStatusTracker
+                                order={o}
+                                lang={lang}
+                                isSimple={isSimple}
+                                onRefresh={fetchUserOrders}
+                              />
+
+                              {/* Special Requests & Allergy Note if present */}
+                              {o.specialInstructions && (
+                                <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-start gap-2 text-xs">
+                                  <MessageSquare className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                                  <div className="flex-1 min-w-0">
+                                    <span className="font-extrabold text-[11px] text-amber-800 dark:text-amber-300">
+                                      {lang === 'th' ? "คำขอพิเศษ / แพ้อาหาร:" : "Special Requests / Allergies:"}
+                                    </span>{' '}
+                                    <span className="text-slate-700 dark:text-slate-300 text-[11px]">
+                                      {o.specialInstructions}
+                                    </span>
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Items summary */}
+                              <div className="space-y-1.5 pt-1 border-t border-slate-200/50 dark:border-slate-800/50">
+                                {o.items.map((item, idx) => (
+                                  <div key={idx} className="flex justify-between items-center text-xs font-bold text-slate-600 dark:text-slate-300">
+                                    <div className="flex items-center gap-1.5">
+                                      <span>{lang === 'th' ? item.nameTh : item.nameEn}</span>
+                                      <span className="text-slate-400 text-[11px]">x{item.quantity}</span>
+                                      {item.options && (
+                                        <span className="text-[10px] text-rose-500 bg-rose-500/10 px-1.5 py-0.2 rounded font-medium">
+                                          {item.options.temperature === 'hot' ? (lang === 'th' ? 'ร้อน' : 'Hot') : (lang === 'th' ? 'เย็น' : 'Cold')}
+                                          {item.options.toppings === 'with' ? (lang === 'th' ? '+เครื่อง' : '+Toppings') : ''}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span>฿{item.price * item.quantity}</span>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Order Card Footer: Total and Reorder Button */}
+                              <div className="flex justify-between items-center pt-2.5 border-t border-slate-200/50 dark:border-slate-800/50 text-xs">
+                                <div>
+                                  <span className="font-bold text-slate-400 text-[11px] block">
+                                    {lang === 'th' ? "ยอดรวมทั้งสิ้น" : "Total"}
+                                  </span>
+                                  <span className="font-black text-rose-500 text-sm">฿{o.total}</span>
+                                </div>
+
+                                {/* Reorder Button - Prominently available for completed orders */}
+                                {o.status === 'completed' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReorder(o)}
+                                    className={`px-3.5 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black transition-all active:scale-95 shadow-md shadow-rose-500/20 flex items-center gap-1.5 cursor-pointer ${
+                                      isSimple ? 'text-sm py-2.5 px-4' : 'text-xs'
+                                    }`}
+                                    title={lang === 'th' ? "สั่งซ้ำ: ใส่เมนูและตัวเลือกจากออเดอร์นี้ลงในตะกร้า" : "Reorder: add exact items & options to cart"}
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                    <span>{lang === 'th' ? "สั่งซ้ำ (Reorder)" : "Reorder"}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
               </>
             )}

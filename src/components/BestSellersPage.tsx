@@ -30,7 +30,7 @@ export const BestSellersPage: React.FC<BestSellersPageProps> = ({
   const t = translations[lang];
   const [filter, setFilter] = useState<'all' | 'snacks' | 'drinks' | 'ginger' | 'toast'>('all');
 
-  // Curated Best Seller IDs based on Chang Phueak popularity
+  // Curated Best Seller IDs based on Wua Lai Road Soi 2 popularity
   const bestSellerMeta: Record<string, { rank: number; badgeTh: string; badgeEn: string; salesCount: number; rating: number; tag: 'snacks' | 'drinks' | 'ginger' | 'toast' }> = {
     // 1. ปาท่องโก๋
     'snack-1': { rank: 1, badgeTh: '🔥 ขายดีอันดับ 1 ในตำนาน', badgeEn: '#1 All-Time Legend', salesCount: 5420, rating: 5.0, tag: 'snacks' },

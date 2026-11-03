@@ -39,16 +39,16 @@ export interface StoreSettings {
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
   location: {
-    branchNameTh: "สาขาช้างเผือก & ถนนวัวลาย เชียงใหม่",
-    branchNameEn: "Chang Phueak & Wua Lai Road Branches, Chiang Mai",
-    addressTh: "12/4 ถนนมณีนพรัตน์ ตำบลศรีภูมิ อำเภอเมืองเชียงใหม่ (เยื้องประตูช้างเผือก) และ สาขาถนนวัวลาย ซอย 2",
-    addressEn: "12/4 Manee Nopparat Rd, Si Phum, Mueang Chiang Mai (Opposite Chang Phueak Gate) & Wua Lai Rd Soi 2",
-    lat: 18.796389,
-    lon: 98.986389,
+    branchNameTh: "สาขาถนนวัวลาย ซอย 2 (เชียงใหม่)",
+    branchNameEn: "Wua Lai Road Soi 2 Branch (Chiang Mai)",
+    addressTh: "15/4 ถนนวัวลาย ซอย 2 ตำบลหายยา อำเภอเมืองเชียงใหม่ จังหวัดเชียงใหม่ 50100",
+    addressEn: "15/4 Wua Lai Road Soi 2, Tambon Hai Ya, Amphoe Mueang, Chiang Mai 50100",
+    lat: 18.779833,
+    lon: 98.984472,
     phone: "089-556-7890",
     morningHours: "06:00 - 11:00",
     eveningHours: "16:00 - 22:00",
-    googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=18.796389,98.986389"
+    googleMapsUrl: "https://www.google.com/maps/search/?api=1&query=18.779833,98.984472"
   },
   promptpay: {
     accountNumber: "089-556-7890",
@@ -71,51 +71,15 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
 
 export const LOCATION_PRESETS: { labelTh: string; labelEn: string; data: Partial<ShopLocationSettings> }[] = [
   {
-    labelTh: "สาขาประตูช้างเผือก (ตามภาพเมนูหน้าร้าน)",
-    labelEn: "Chang Phueak Gate Branch (Photographed Menu)",
+    labelTh: "สาขาถนนวัวลาย ซอย 2 (จุดรับสินค้าหลัก)",
+    labelEn: "Wua Lai Road Soi 2 (Main Pickup Location)",
     data: {
-      branchNameTh: "จิ๊กโก๋ สะบัดน้ำมัน สาขาช้างเผือก",
-      branchNameEn: "Jikko Sabat Namman (Chang Phueak Branch)",
-      addressTh: "12/4 ถนนมณีนพรัตน์ ต.ศรีภูมิ อ.เมือง จ.เชียงใหม่ (เยื้องประตูช้างเผือก)",
-      addressEn: "12/4 Manee Nopparat Rd, Si Phum, Chiang Mai (Near Chang Phueak Gate)",
-      lat: 18.796389,
-      lon: 98.986389,
-    }
-  },
-  {
-    labelTh: "สาขาถนนวัวลาย ซอย 2 (ต้นตำรับน้ำเต้าหู้หายยา)",
-    labelEn: "Wua Lai Road Soi 2 (Original Haiya Branch)",
-    data: {
-      branchNameTh: "น้ำเต้าหู้วัวลาย ซอย 2 (หายยา)",
-      branchNameEn: "Wua Lai Soi 2 Soy Milk Shop (Haiya)",
-      addressTh: "ถนนวัวลาย ซอย 2 ตำบลหายยา อำเภอเมืองเชียงใหม่ จังหวัดเชียงใหม่ 50100",
-      addressEn: "Wua Lai Road Soi 2, Haiya Sub-district, Mueang Chiang Mai, 50100",
+      branchNameTh: "น้ำเต้าหู้วัวลาย ซอย 2 (หายยา เชียงใหม่)",
+      branchNameEn: "Wua Lai Soi 2 Soy Milk Shop (Haiya, Chiang Mai)",
+      addressTh: "15/4 ถนนวัวลาย ซอย 2 ตำบลหายยา อำเภอเมืองเชียงใหม่ จังหวัดเชียงใหม่ 50100",
+      addressEn: "15/4 Wua Lai Road Soi 2, Tambon Hai Ya, Amphoe Mueang, Chiang Mai 50100",
       lat: 18.779833,
       lon: 98.984472,
-    }
-  },
-  {
-    labelTh: "สาขาประตูท่าแพ (ลานกิจกรรม)",
-    labelEn: "Tha Phae Gate Branch",
-    data: {
-      branchNameTh: "จิ๊กโก๋ สะบัดน้ำมัน สาขาประตูท่าแพ",
-      branchNameEn: "Jikko Sabat Namman (Tha Phae Gate Branch)",
-      addressTh: "ถนนมูลเมือง ตำบลช้างม่อย อำเภอเมืองเชียงใหม่ (ติดลานประตูท่าแพ)",
-      addressEn: "Moon Muang Rd, Chang Moi, Chiang Mai (Tha Phae Gate Plaza)",
-      lat: 18.787778,
-      lon: 98.993333,
-    }
-  },
-  {
-    labelTh: "สาขานิมมานเหมินท์ ซอย 9",
-    labelEn: "Nimman Soi 9 Branch",
-    data: {
-      branchNameTh: "จิ๊กโก๋ สะบัดน้ำมัน สาขานิมมาน",
-      branchNameEn: "Jikko Sabat Namman (Nimman Soi 9)",
-      addressTh: "ถนนนิมมานเหมินท์ ซอย 9 ตำบลสุเทพ อำเภอเมืองเชียงใหม่",
-      addressEn: "Nimmanhaemin Soi 9, Suthep, Chiang Mai",
-      lat: 18.797778,
-      lon: 98.969444,
     }
   }
 ];
