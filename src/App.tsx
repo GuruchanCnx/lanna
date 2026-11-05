@@ -26,6 +26,9 @@ import { OrderStatusToast, OrderStatusToastNotification } from './components/Ord
 import { StoreSettingsModal } from './components/StoreSettingsModal';
 import { OrderFeedbackCard } from './components/OrderFeedbackCard';
 import { Admin } from './pages/Admin';
+import { ProductCard } from './components/ProductCard';
+import { CategoryDropdown } from './components/CategoryDropdown';
+import { OneHandNavigation } from './components/OneHandNavigation';
 
 function App() {
   // Localization & Theme states
@@ -405,137 +408,41 @@ function App() {
     });
   };
 
-  // Render a single product card with favorite heart toggle
-  const renderProductCard = (p: Product) => {
-    const isDrink = p.isBeverage || ['beverages', 'soymilk', 'milk', 'drinks'].includes(p.category);
-    const bevOptions = selectedBevOptions[p.id] || { temperature: 'hot', toppings: 'none' };
-    const isFav = favorites.includes(p.id);
+  // Render a single product card with favorite heart toggle and visual badges
+  const renderProductCard = (p: Product) => (
+    <ProductCard
+      key={p.id}
+      product={p}
+      isSimple={isSimple}
+      lang={lang}
+      isFavorite={favorites.includes(p.id)}
+      onToggleFavorite={handleToggleFavorite}
+      onAddToCart={handleAddToCart}
+      bevOptions={selectedBevOptions[p.id]}
+      onOptionChange={handleOptionChange}
+    />
+  );
 
-    return (
-      <div 
-        key={p.id} 
-        className={`bg-white dark:bg-slate-900 rounded-3xl p-4 shadow-md border border-slate-100 dark:border-slate-800 flex flex-col justify-between transition-all hover:shadow-lg relative group ${
-          isSimple ? 'border-2 border-slate-200 dark:border-slate-700 p-5' : ''
-        }`}
-      >
-        <div className="space-y-3">
-          <div className="relative aspect-video rounded-2xl overflow-hidden bg-slate-50 dark:bg-slate-950">
-            <img src={p.image} alt={p.nameEn} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-            
-            {/* Favorite Toggle Button */}
-            <button
-              type="button"
-              onClick={(e) => handleToggleFavorite(p.id, e)}
-              title={isFav ? (lang === 'th' ? "ลบออกจากรายการโปรด" : "Remove from favorites") : (lang === 'th' ? "เพิ่มในรายการโปรด" : "Add to favorites")}
-              aria-label={isFav ? "Favorited" : "Add to favorites"}
-              className={`absolute top-2.5 right-2.5 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-md transition-all active:scale-75 shadow-md ${
-                isFav
-                  ? 'bg-rose-500 text-white shadow-rose-500/30 ring-2 ring-white/50 dark:ring-slate-900/50'
-                  : 'bg-white/85 dark:bg-slate-900/85 text-slate-400 hover:text-rose-500 hover:bg-white dark:hover:bg-slate-900'
-              }`}
-            >
-              <Heart className={`w-4 h-4 transition-transform ${isFav ? 'fill-current scale-110' : ''}`} />
-            </button>
+  // One-hand navigation thumb reachability handlers
+  const handleScrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
-            {p.stock <= 5 && (
-              <span className="absolute top-2.5 left-2.5 bg-rose-500 text-white text-[9px] font-black px-2 py-0.5 rounded-full shadow-sm">
-                {lang === 'th' ? `เหลือ ${p.stock} ชิ้น` : `${p.stock} left`}
-              </span>
-            )}
-          </div>
+  const handleOpenCategoryMenuFromThumb = () => {
+    setActiveTab('menu');
+    setTimeout(() => {
+      const el = document.getElementById('category-dropdown-container');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  };
 
-          <div>
-            <h4 className={`font-black text-slate-800 dark:text-white leading-tight ${isSimple ? 'text-lg' : 'text-sm'}`}>
-              {lang === 'th' ? p.nameTh : p.nameEn}
-            </h4>
-            {p.descriptionTh && (
-              <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 leading-relaxed">
-                {lang === 'th' ? p.descriptionTh : p.descriptionEn}
-              </p>
-            )}
-          </div>
-
-          {/* Customization options for beverages */}
-          {isDrink && !isSimple && (
-            <div className="bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800/60">
-              {/* Temperature */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-bold text-slate-400 uppercase">Temp</span>
-                <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => handleOptionChange(p.id, 'temperature', 'hot')}
-                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                      bevOptions.temperature === 'hot'
-                        ? 'bg-rose-500 text-white'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                    }`}
-                  >
-                    {t.hot}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOptionChange(p.id, 'temperature', 'cold')}
-                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                      bevOptions.temperature === 'cold'
-                        ? 'bg-rose-500 text-white'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                    }`}
-                  >
-                    {t.cold}
-                  </button>
-                </div>
-              </div>
-
-              {/* Toppings */}
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-bold text-slate-400 uppercase">Toppings</span>
-                <div className="flex bg-white dark:bg-slate-900 p-0.5 rounded-lg border border-slate-100 dark:border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => handleOptionChange(p.id, 'toppings', 'none')}
-                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                      bevOptions.toppings === 'none'
-                        ? 'bg-rose-500 text-white'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                    }`}
-                  >
-                    {t.noToppings}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOptionChange(p.id, 'toppings', 'with')}
-                    className={`px-2 py-0.5 rounded-md text-[9px] font-black transition-all ${
-                      bevOptions.toppings === 'with'
-                        ? 'bg-rose-500 text-white'
-                        : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-                    }`}
-                  >
-                    {t.withToppings}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between gap-4 pt-3 mt-3 border-t border-slate-100 dark:border-slate-800/80">
-          <span className={`font-black text-rose-500 ${isSimple ? 'text-xl' : 'text-sm'}`}>
-            ฿{p.price}
-          </span>
-          <button
-            id={`add-btn-${p.id}`}
-            onClick={() => handleAddToCart(p)}
-            className={`px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-black text-xs transition-all active:scale-95 shadow-md shadow-rose-500/5 flex items-center gap-1 ${
-              isSimple ? 'text-sm py-3 px-6 rounded-2xl' : ''
-            }`}
-          >
-            <ShoppingBag className="w-3.5 h-3.5" />
-            <span>{t.addToCart}</span>
-          </button>
-        </div>
-      </div>
-    );
+  const handleFocusSearchFromThumb = () => {
+    setActiveTab('menu');
+    setTimeout(() => {
+      const input = document.getElementById('menu-search-input') as HTMLInputElement;
+      input?.focus();
+      input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
   };
 
   // Filter products by search query
@@ -666,98 +573,156 @@ function App() {
         {/* TAB 1: HOME */}
         {activeTab === 'home' && (
           <div className="space-y-6">
-            {/* Hero banner */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl overflow-hidden shadow-xl border border-slate-100 dark:border-slate-800 grid grid-cols-1 lg:grid-cols-2 transition-all duration-300">
-              <div className="p-6 md:p-10 flex flex-col justify-center space-y-4">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 rounded-full text-xs font-black self-start">
-                  <Sparkles className="w-4 h-4" />
-                  <span>{t.tagline}</span>
-                </div>
-                
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
-                  {t.heroEditorialTitle}
-                </h2>
-                
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
-                  {t.slogan}
-                </p>
+            {/* 1. HERO WALL LANDING PAGE HEADER WITH SALES CATCHPHRASE */}
+            <div className="text-center space-y-3 max-w-3xl mx-auto pt-2">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-black tracking-wide border border-rose-500/20 shadow-sm animate-fade-in">
+                <Sparkles className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                <span>{t.tagline}</span>
+              </div>
 
-                {/* 3 Soy Milk Health & Nutrition Highlights */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                  <div className="p-2.5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
-                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-emerald-700 dark:text-emerald-300">
-                      <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-                      <span>{lang === 'th' ? 'โปรตีนสมบูรณ์' : 'Complete Protein'}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight font-medium">
-                      {t.soymilkBenefitPill1}
-                    </p>
-                  </div>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
+                {t.heroCatchphrase}
+              </h2>
 
-                  <div className="p-2.5 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl">
-                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-amber-700 dark:text-amber-300">
-                      <Heart className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                      <span>{lang === 'th' ? 'หัวใจ & หลอดเลือด' : 'Cardiovascular'}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight font-medium">
-                      {t.soymilkBenefitPill2}
-                    </p>
-                  </div>
+              <p className="text-xs sm:text-sm md:text-base font-bold text-rose-600 dark:text-rose-400 tracking-wide max-w-2xl mx-auto">
+                {t.heroSalesSubphrase}
+              </p>
+            </div>
 
-                  <div className="p-2.5 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 rounded-2xl">
-                    <div className="flex items-center gap-1.5 font-extrabold text-[11px] text-rose-700 dark:text-rose-300">
-                      <Sparkles className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
-                      <span>{lang === 'th' ? 'ย่อยง่าย สบายท้อง' : 'Smooth Digestion'}</span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-tight font-medium">
-                      {t.soymilkBenefitPill3}
-                    </p>
-                  </div>
+            {/* 2. CINEMATIC HERO WALL IMAGE CENTERPIECE WITH SALES OVERLAYS & CTA */}
+            <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-900 group min-h-[340px] sm:min-h-[420px] md:min-h-[460px] flex flex-col justify-between p-4 sm:p-6 md:p-8">
+              {/* Background Hero Image */}
+              <img 
+                src={heroImage} 
+                alt="Chiang Mai Soy Milk & Culture" 
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-slate-950/50 pointer-events-none" />
+
+              {/* Top Floating Badges */}
+              <div className="relative z-10 flex items-start justify-between gap-2">
+                <div className="px-3 py-1.5 bg-slate-900/85 backdrop-blur-md rounded-2xl border border-white/20 text-white flex items-center gap-2 shadow-lg">
+                  <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span className="text-[11px] sm:text-xs font-black tracking-wide">
+                    {lang === 'th' ? '🔥 เตาต้มสดเปิดบริการ: เช้า 06:00-11:00 • เย็น 16:00-22:00' : '🔥 Kitchen Open: Morning 06:00-11:00 • Evening 16:00-22:00'}
+                  </span>
                 </div>
 
-                {/* Vessel Discount Callout */}
-                <div className="p-3.5 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/15 rounded-2xl flex items-center gap-3">
-                  <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
-                    <Coffee className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <div>
-                    <h4 className="font-black text-xs text-slate-800 dark:text-white">{t.bringVesselTitle}</h4>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">{t.bringVesselDesc}</p>
-                  </div>
+                {/* Hero Wall Image Edit/Upload Trigger */}
+                <button
+                  type="button"
+                  onClick={() => setIsHeroModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/80 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl backdrop-blur-md shadow-lg border border-white/20 transition-all active:scale-95 hover:scale-105 cursor-pointer"
+                  title={t.editHeroImage}
+                  aria-label={t.editHeroImage}
+                >
+                  <Camera className="w-3.5 h-3.5 text-rose-400" />
+                  <span className="hidden sm:inline">{t.editHeroImage}</span>
+                </button>
+              </div>
+
+              {/* Bottom Hero Overlay: Sales Prompt & Primary Conversion Actions */}
+              <div className="relative z-10 space-y-4 max-w-2xl mt-auto pt-8">
+                {/* Save 2 Baht Vessel Callout Banner */}
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-emerald-500/90 text-white rounded-xl text-xs font-black shadow-lg backdrop-blur-md">
+                  <Coffee className="w-4 h-4 animate-bounce" />
+                  <span>{t.bringVesselTitle} — {lang === 'th' ? 'พกกระบอกน้ำมาเอง ลดทันที 2.- ทุกแก้ว!' : 'Bring your own cup, save 2฿ per cup!'}</span>
                 </div>
 
-                {/* CTA Button Aligned With Editorial */}
-                <div className="pt-1">
+                <div className="space-y-1">
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-white leading-tight drop-shadow-md">
+                    {lang === 'th' ? 'ปาท่องโก๋สะบัดน้ำมัน & น้ำเต้าหู้ทรงเครื่องร้อนๆ' : 'Crispy Artisanal Donuts & Steaming Hot Soy Milk'}
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-200 line-clamp-2 drop-shadow font-medium">
+                    {lang === 'th' 
+                      ? 'สูตรโบราณดั้งเดิมเชียงใหม่ วัตถุดิบธรรมชาติแท้ 100% พร้อมเสิร์ฟถึงมือคุณ'
+                      : 'Authentic Chiang Mai heritage recipe, 100% natural, freshly prepared to order.'}
+                  </p>
+                </div>
+
+                {/* Conversion Buttons on Hero */}
+                <div className="flex flex-wrap items-center gap-3 pt-1">
                   <button
                     onClick={() => setActiveTab('menu')}
-                    className="w-full sm:w-auto px-6 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/20 transition-all flex items-center justify-center gap-2 active:scale-95 text-xs sm:text-sm cursor-pointer"
+                    className="px-6 py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-xl shadow-rose-500/30 transition-all flex items-center gap-2 active:scale-95 text-xs sm:text-sm cursor-pointer"
                   >
                     <span>{t.heroCtaText}</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
+
+                  <button
+                    onClick={() => setActiveTab('bestsellers')}
+                    className="px-5 py-3.5 bg-white/90 hover:bg-white text-slate-900 font-black rounded-2xl shadow-xl backdrop-blur-md transition-all flex items-center gap-2 active:scale-95 text-xs sm:text-sm cursor-pointer"
+                  >
+                    <span>{t.heroSecondaryCta}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. EDITORIAL SECTION: SOY MILK HEALTH BENEFITS & NUTRITION */}
+            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-6">
+              <div className="space-y-3">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-xs font-black self-start">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>{lang === 'th' ? 'สาระน่ารู้ด้านโภชนาการ' : 'Nutritional Editorial'}</span>
+                </div>
+
+                <h3 className="text-xl sm:text-2xl md:text-3xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
+                  {t.heroEditorialTitle}
+                </h3>
+
+                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 leading-relaxed font-medium">
+                  {t.slogan}
+                </p>
+              </div>
+
+              {/* 3 Soy Milk Health & Nutrition Highlights */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                <div className="p-4 bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/20 rounded-2xl space-y-1.5">
+                  <div className="flex items-center gap-2 font-black text-xs text-emerald-700 dark:text-emerald-300">
+                    <ShieldCheck className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                    <span>{lang === 'th' ? 'โปรตีนพืชสมบูรณ์' : 'Complete Protein'}</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                    {t.soymilkBenefitPill1}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1.5">
+                  <div className="flex items-center gap-2 font-black text-xs text-amber-700 dark:text-amber-300">
+                    <Heart className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                    <span>{lang === 'th' ? 'หัวใจ & หลอดเลือด' : 'Cardiovascular'}</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                    {t.soymilkBenefitPill2}
+                  </p>
+                </div>
+
+                <div className="p-4 bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 rounded-2xl space-y-1.5">
+                  <div className="flex items-center gap-2 font-black text-xs text-rose-700 dark:text-rose-300">
+                    <Sparkles className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                    <span>{lang === 'th' ? '0% แลคโตส ย่อยง่าย' : '0% Lactose Digestion'}</span>
+                  </div>
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                    {t.soymilkBenefitPill3}
+                  </p>
                 </div>
               </div>
 
-              <div className="relative aspect-square md:aspect-auto min-h-[300px] overflow-hidden rounded-3xl group">
-                <img 
-                  src={heroImage} 
-                  alt="Chiang Mai Traditional Bag & Culture" 
-                  className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-transparent pointer-events-none" />
-                
-                {/* Hero Wall Image Edit/Upload Trigger */}
-                <div className="absolute top-4 right-4 z-10">
-                  <button
-                    type="button"
-                    onClick={() => setIsHeroModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-2 bg-slate-900/80 hover:bg-slate-900 text-white text-xs font-bold rounded-2xl backdrop-blur-md shadow-lg border border-white/20 transition-all active:scale-95 hover:scale-105 cursor-pointer"
-                    title={t.editHeroImage}
-                    aria-label={t.editHeroImage}
-                  >
-                    <Camera className="w-3.5 h-3.5 text-rose-400" />
-                    <span className="hidden sm:inline">{t.editHeroImage}</span>
-                  </button>
+              {/* Trust Points Strip */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-around gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+                <div className="flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span>{lang === 'th' ? 'ปรุงสดใหม่ทุกออเดอร์' : 'Cooked Fresh to Order'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span>{lang === 'th' ? 'สแกนพร้อมเพย์สะดวก รวดเร็ว' : 'Fast PromptPay QR'}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span>{lang === 'th' ? 'สาขาถนนวัวลาย ซอย 2 เชียงใหม่' : 'Wua Lai Road Soi 2, Chiang Mai'}</span>
                 </div>
               </div>
             </div>
@@ -801,6 +766,7 @@ function App() {
                   <Search className="w-4 h-4" />
                 </div>
                 <input
+                  id="menu-search-input"
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -927,76 +893,17 @@ function App() {
               </div>
             ) : (
               <>
-                {/* Responsive Category selection */}
-                <div className="flex gap-2 overflow-x-auto pb-2.5 -mx-4 px-4 scrollbar-none items-center touch-pan-x">
-                  {/* All Filter */}
-                  <button
-                    onClick={() => setMenuFilter('all')}
-                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 cursor-pointer ${
-                      menuFilter === 'all'
-                        ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900 border-slate-900 dark:border-white shadow-md'
-                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                    }`}
-                  >
-                    <span>✨ {lang === 'th' ? "ทั้งหมด" : "All"}</span>
-                    <span className="text-[10px] px-1.5 py-0.2 rounded-full font-black opacity-80 bg-slate-200/50 dark:bg-slate-800">
-                      {searchedProducts.length}
-                    </span>
-                  </button>
-
-                  {/* Favorites Filter */}
-                  <button
-                    onClick={() => setMenuFilter('favorites')}
-                    className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 cursor-pointer ${
-                      menuFilter === 'favorites'
-                        ? 'bg-rose-500 text-white border-rose-500 shadow-md shadow-rose-500/20'
-                        : 'bg-white dark:bg-slate-900 text-rose-500 border-rose-200 dark:border-rose-950/60 hover:bg-rose-50/50 dark:hover:bg-rose-950/20'
-                    }`}
-                  >
-                    <Heart className={`w-3.5 h-3.5 ${menuFilter === 'favorites' || favorites.length > 0 ? 'fill-current' : ''}`} />
-                    <span>{t.catFavorites}</span>
-                    {favorites.length > 0 && (
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                        menuFilter === 'favorites'
-                          ? 'bg-white text-rose-600'
-                          : 'bg-rose-500 text-white'
-                      }`}>
-                        {favorites.length}
-                      </span>
-                    )}
-                  </button>
-
-                  {/* Dynamic Category Filter Pills */}
-                  {MENU_CATEGORIES.map((catItem) => {
-                    const count = searchedProducts.filter(p => p.category === catItem.id).length;
-                    if (count === 0 && query) return null;
-
-                    return (
-                      <button
-                        key={catItem.id}
-                        onClick={() => {
-                          setMenuFilter(catItem.id);
-                          const el = document.getElementById(`cat-section-${catItem.id}`);
-                          el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                        }}
-                        className={`flex-shrink-0 px-4 py-2.5 rounded-2xl font-black text-xs transition-all active:scale-95 shadow-sm border flex items-center gap-1.5 cursor-pointer ${
-                          menuFilter === catItem.id
-                            ? catItem.color
-                            : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                        }`}
-                      >
-                        <span>{catItem.icon}</span>
-                        <span>{t[catItem.labelKey] as string}</span>
-                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-black ${
-                          menuFilter === catItem.id
-                            ? 'bg-white/25 text-white'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
-                        }`}>
-                          {count}
-                        </span>
-                      </button>
-                    );
-                  })}
+                {/* Category Dropdown Selection (Replacing Horizontal Sliding Menu) */}
+                <div id="category-dropdown-container" className="pt-1 pb-1">
+                  <CategoryDropdown
+                    activeCategory={menuFilter}
+                    onSelectCategory={(catId) => setMenuFilter(catId as any)}
+                    searchedProducts={searchedProducts}
+                    favoritesCount={favorites.length}
+                    categories={MENU_CATEGORIES}
+                    lang={lang}
+                    isSimple={isSimple}
+                  />
                 </div>
 
                 {/* Product categories list or Favorites view */}
@@ -1472,101 +1379,127 @@ function App() {
 
       </main>
 
-      {/* FLOATING CART BUTTON (Bottom right, extremely accessible for one-handed use) */}
+      {/* FLOATING CART BUTTON (DESKTOP & TABLETS) */}
       {cart.length > 0 && (
         <button
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-20 right-4 z-40 w-14 h-14 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-xl shadow-rose-500/20 hover:scale-105 active:scale-95 transition-all"
+          className="fixed bottom-20 right-6 z-40 hidden md:flex items-center gap-3 bg-rose-500 hover:bg-rose-600 text-white px-5 py-3.5 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 animate-fade-in cursor-pointer border border-white/20"
+          title={lang === 'th' ? "ดูตะกร้าสินค้า" : "View Cart"}
         >
           <div className="relative">
-            <ShoppingBag className="w-6 h-6 animate-bounce" />
-            <span className="absolute -top-2 -right-2 bg-white text-rose-500 text-[9px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-rose-500 shadow">
+            <ShoppingBag className="w-5 h-5 animate-bounce" />
+            <span className="absolute -top-2 -right-2 bg-white text-rose-500 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-rose-500 shadow">
               {cart.reduce((sum, item) => sum + item.quantity, 0)}
             </span>
           </div>
+          <span className="text-sm font-black">
+            ฿{cart.reduce((sum, item) => sum + (item.product.price - (item.vesselDiscount ? 2 : 0)) * item.quantity, 0)}
+          </span>
         </button>
       )}
 
-      {/* BOTTOM NAVIGATION TAB BAR (Perfect for mobile thumb reach) */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white dark:bg-slate-900 border-t border-slate-150 dark:border-slate-800/80 px-2 py-2 transition-colors duration-300">
+      {/* MOBILE ONE-HAND NAVIGATION CAPABILITY */}
+      <OneHandNavigation
+        lang={lang}
+        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
+        cartTotal={cart.reduce((sum, item) => sum + (item.product.price - (item.vesselDiscount ? 2 : 0)) * item.quantity, 0)}
+        onOpenCart={() => setIsCartOpen(true)}
+        onOpenCategoryMenu={handleOpenCategoryMenuFromThumb}
+        onScrollToTop={handleScrollToTop}
+        onFocusSearch={handleFocusSearchFromThumb}
+        activeCategoryName={
+          menuFilter === 'all' 
+            ? (lang === 'th' ? 'เมนูทั้งหมด' : 'All Menu')
+            : menuFilter === 'favorites'
+            ? t.catFavorites
+            : (() => {
+                const found = MENU_CATEGORIES.find(c => c.id === menuFilter);
+                return found ? ((t as unknown as Record<string, string>)[found.labelKey] || found.id) : '';
+              })()
+        }
+        isSimple={isSimple}
+      />
+
+      {/* BOTTOM NAVIGATION TAB BAR (Optimized for one-handed thumb reach) */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800/80 px-2 py-2 transition-colors duration-300 pb-safe">
         <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
           
           {/* Home Tab */}
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
               activeTab === 'home' 
-                ? 'text-rose-500 font-extrabold' 
+                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
                 : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             }`}
           >
-            <HomeIcon className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{t.navHome}</span>
+            <HomeIcon className={`w-5 h-5 transition-transform ${activeTab === 'home' ? 'scale-110' : ''}`} />
+            <span className="text-[10px] tracking-tight">{t.navHome}</span>
           </button>
 
           {/* Menu Tab */}
           <button
             onClick={() => setActiveTab('menu')}
-            className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
               activeTab === 'menu' 
-                ? 'text-rose-500 font-extrabold' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             }`}
           >
-            <Coffee className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{t.navMenu}</span>
+            <Coffee className={`w-5 h-5 transition-transform ${activeTab === 'menu' ? 'scale-110' : ''}`} />
+            <span className="text-[10px] tracking-tight">{t.navMenu}</span>
           </button>
 
-          {/* Best Sellers Tab (Replacing Traditional Bags) */}
+          {/* Best Sellers Tab */}
           <button
             onClick={() => setActiveTab('bestsellers')}
-            className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
               activeTab === 'bestsellers' || activeTab === 'bags'
-                ? 'text-rose-500 font-extrabold' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             }`}
           >
-            <Flame className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{t.navBestSellers}</span>
+            <Flame className={`w-5 h-5 transition-transform ${activeTab === 'bestsellers' || activeTab === 'bags' ? 'scale-110 text-amber-500' : ''}`} />
+            <span className="text-[10px] tracking-tight">{t.navBestSellers}</span>
           </button>
 
           {/* Map Tab */}
           <button
             onClick={() => setActiveTab('map')}
-            className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
               activeTab === 'map' 
-                ? 'text-rose-500 font-extrabold' 
-                : 'text-slate-400 hover:text-slate-600'
+                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
             }`}
           >
-            <MapPin className="w-5 h-5" />
-            <span className="text-[9px] tracking-tight">{t.navMap}</span>
+            <MapPin className={`w-5 h-5 transition-transform ${activeTab === 'map' ? 'scale-110' : ''}`} />
+            <span className="text-[10px] tracking-tight">{t.navMap}</span>
           </button>
 
           {/* Admin / Profile Tab */}
           {currentUser?.isAdmin ? (
             <button
               onClick={() => setActiveTab('admin')}
-              className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
+              className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
                 activeTab === 'admin' 
-                  ? 'text-rose-500 font-extrabold' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
               }`}
             >
-              <ShieldCheck className="w-5 h-5" />
-              <span className="text-[9px] tracking-tight">{t.navAdmin}</span>
+              <ShieldCheck className={`w-5 h-5 transition-transform ${activeTab === 'admin' ? 'scale-110' : ''}`} />
+              <span className="text-[10px] tracking-tight">{t.navAdmin}</span>
             </button>
           ) : (
             <button
               onClick={() => setActiveTab('profile')}
-              className={`flex flex-col items-center gap-1 py-1 rounded-xl transition-all active:scale-95 ${
+              className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
                 activeTab === 'profile' 
-                  ? 'text-rose-500 font-extrabold' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
+                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
               }`}
             >
-              <User className="w-5 h-5" />
-              <span className="text-[9px] tracking-tight">{t.navProfile}</span>
+              <User className={`w-5 h-5 transition-transform ${activeTab === 'profile' ? 'scale-110' : ''}`} />
+              <span className="text-[10px] tracking-tight">{t.navProfile}</span>
             </button>
           )}
 

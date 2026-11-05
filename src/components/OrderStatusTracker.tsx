@@ -98,10 +98,14 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
     minute: '2-digit',
   });
 
-  // Target standard preparation window is 12 minutes (720 seconds) from order placement
-  const TOTAL_PREP_SECONDS = 12 * 60; // 720s
+  // Calculate average order completion time based on order items
+  // Base kitchen prep time is 6 minutes (360s). Each item adds ~45s. Clamped between 6 and 15 minutes.
+  const totalItemCount = order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
+  const estimatedAverageSeconds = Math.min(15 * 60, Math.max(6 * 60, 360 + totalItemCount * 45));
+  const estimatedAverageMinutes = Math.ceil(estimatedAverageSeconds / 60);
+
   const elapsedSeconds = Math.max(0, Math.floor((now - orderDate.getTime()) / 1000));
-  const remainingSeconds = Math.max(0, TOTAL_PREP_SECONDS - elapsedSeconds);
+  const remainingSeconds = Math.max(0, estimatedAverageSeconds - elapsedSeconds);
 
   const remainingMinutes = Math.floor(remainingSeconds / 60);
   const remainingSecs = remainingSeconds % 60;
@@ -111,10 +115,10 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
   if (isFinished || isReady) {
     prepProgressPercent = 100;
   } else if (currentStatus === 'preparing') {
-    prepProgressPercent = Math.min(95, Math.max(25, Math.round((elapsedSeconds / TOTAL_PREP_SECONDS) * 100)));
+    prepProgressPercent = Math.min(98, Math.max(12, Math.round(((estimatedAverageSeconds - remainingSeconds) / estimatedAverageSeconds) * 100)));
   } else {
     // pending
-    prepProgressPercent = Math.min(25, Math.max(10, Math.round((elapsedSeconds / 120) * 20)));
+    prepProgressPercent = Math.min(25, Math.max(8, Math.round((elapsedSeconds / 180) * 20)));
   }
 
   return (
@@ -150,7 +154,7 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
               : currentStatus === 'ready'
               ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20 animate-pulse'
               : currentStatus === 'preparing'
-              ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
+              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30'
               : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
           }`}>
             {STEPS[currentIndex] ? (lang === 'th' ? STEPS[currentIndex].labelTh : STEPS[currentIndex].labelEn) : currentStatus}
@@ -233,8 +237,109 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
         </div>
       </div>
 
-      {/* DYNAMIC ESTIMATED COUNTDOWN PROGRESS BAR */}
-      {!isFinished && (
+      {/* LIVE VISUAL COUNTDOWN TIMER FOR 'PREPARING' STATUS */}
+      {currentStatus === 'preparing' && !isFinished && (
+        <div className="mt-4 p-4 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-rose-500/10 dark:from-amber-950/40 dark:via-slate-900 dark:to-rose-950/30 rounded-2xl border-2 border-amber-400/40 dark:border-amber-500/30 shadow-md space-y-3 relative overflow-hidden">
+          {/* Subtle Ambient Pulse Light */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Header of Countdown Box */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-xl">
+                <Flame className="w-4 h-4 animate-bounce text-amber-500" />
+              </div>
+              <div>
+                <span className="font-black text-xs text-slate-800 dark:text-white flex items-center gap-1.5">
+                  <span>{lang === 'th' ? 'ครัวกำลังปรุงสดใหม่' : 'Live Kitchen Preparation'}</span>
+                  <span className="text-[9px] bg-amber-500 text-white font-extrabold px-1.5 py-0.2 rounded-full uppercase tracking-wider animate-pulse">
+                    Live
+                  </span>
+                </span>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                  {lang === 'th' 
+                    ? `เวลาเฉลี่ยโดยประมาณ ~${estimatedAverageMinutes} นาที (${totalItemCount} รายการ)` 
+                    : `Estimated from average completion ~${estimatedAverageMinutes} mins (${totalItemCount} items)`}
+                </p>
+              </div>
+            </div>
+
+            {/* Total items badge */}
+            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 px-2.5 py-1 rounded-xl border border-amber-300/40">
+              {totalItemCount} {lang === 'th' ? 'รายการ' : 'items'}
+            </span>
+          </div>
+
+          {/* Digital Timer Clock Display */}
+          <div className="p-3 bg-white/90 dark:bg-slate-900/90 rounded-xl border border-amber-200/60 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+            <div className="flex items-center gap-3">
+              <div className="font-mono text-3xl sm:text-4xl font-black text-amber-600 dark:text-amber-400 tracking-wider flex items-center bg-amber-50 dark:bg-amber-950/60 px-3 py-1 rounded-xl border border-amber-300/50 shadow-sm">
+                <span>{remainingMinutes.toString().padStart(2, '0')}</span>
+                <span className="animate-pulse mx-0.5 text-amber-500">:</span>
+                <span>{remainingSecs.toString().padStart(2, '0')}</span>
+              </div>
+              <div className="space-y-0.5">
+                <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider block">
+                  {remainingSeconds > 0 
+                    ? (lang === 'th' ? 'เวลาที่เหลือก่อนพร้อมรับ' : 'Time Remaining') 
+                    : (lang === 'th' ? 'ใกล้พร้อมแล้ว!' : 'Almost Ready!')}
+                </span>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                  {remainingSeconds > 0
+                    ? (lang === 'th' 
+                        ? `รออีกประมาณ ${remainingMinutes} นาที ${remainingSecs} วินาที` 
+                        : `~${remainingMinutes} min ${remainingSecs} sec remaining`)
+                    : (lang === 'th' 
+                        ? 'กำลังจัดแพ็คใส่ภาชนะ พร้อมเสิร์ฟในไม่กี่วินาที...' 
+                        : 'Packaging order, serving in moments...')}
+                </p>
+              </div>
+            </div>
+
+            {/* Percentage completed badge */}
+            <div className="self-end sm:self-auto flex items-center gap-1.5 font-bold text-xs text-amber-600 dark:text-amber-400">
+              <Hourglass className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
+              <span>{prepProgressPercent}% {lang === 'th' ? 'ปรุงเสร็จแล้ว' : 'completed'}</span>
+            </div>
+          </div>
+
+          {/* Visual Countdown Progress Bar */}
+          <div className="space-y-1.5">
+            <div className="w-full h-3 bg-slate-200/70 dark:bg-slate-800 rounded-full overflow-hidden p-0.5 border border-amber-200/50 dark:border-amber-900/50 shadow-inner">
+              <div 
+                className="h-full rounded-full bg-gradient-to-r from-amber-400 via-rose-500 to-emerald-500 transition-all duration-1000 shadow-sm relative overflow-hidden"
+                style={{ width: `${prepProgressPercent}%` }}
+              >
+                <div className="absolute inset-0 bg-white/20 animate-pulse pointer-events-none" />
+              </div>
+            </div>
+            <div className="flex justify-between text-[9px] font-bold text-slate-400 dark:text-slate-500">
+              <span>{lang === 'th' ? '1. เข้าคิวปรุง' : '1. Queued'}</span>
+              <span>{lang === 'th' ? '2. สะบัดน้ำมัน & ต้มสด' : '2. Cooking'}</span>
+              <span>{lang === 'th' ? '3. บรรจุ & พร้อมรับ' : '3. Ready'}</span>
+            </div>
+          </div>
+
+          {/* Store Hours & Freshness guarantee */}
+          <div className="pt-2 border-t border-amber-200/40 dark:border-slate-800 flex items-center justify-between text-[10px]">
+            <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300">
+              <Store className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+              <span>
+                {storeStatus.isOpen
+                  ? (lang === 'th' ? storeStatus.messageTh : storeStatus.messageEn)
+                  : (lang === 'th' ? storeStatus.messageTh : storeStatus.messageEn)}
+              </span>
+            </div>
+            <span className="font-extrabold text-[9px] text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-emerald-500" />
+              <span>{lang === 'th' ? 'ปรุงสดใหม่ 100%' : '100% Fresh to Order'}</span>
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* DYNAMIC ESTIMATED COUNTDOWN PROGRESS BAR (For pending or ready status) */}
+      {currentStatus !== 'preparing' && !isFinished && (
         <div className="mt-4 p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-rose-100 dark:border-rose-900/40 shadow-sm space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200">
@@ -242,18 +347,18 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
               <span>
                 {isReady 
                   ? (lang === 'th' ? '✨ อาหารปรุงเสร็จแล้ว พร้อมรับ!' : '✨ Order Ready for Pickup!')
-                  : (lang === 'th' ? 'เวลาที่เหลือโดยประมาณ:' : 'Estimated Time Remaining:')}
+                  : (lang === 'th' ? 'เวลารอคิวโดยประมาณ:' : 'Estimated Queue Time:')}
               </span>
             </div>
 
             <div className="font-mono font-black text-rose-500 text-xs sm:text-sm">
               {isReady ? (
                 <span className="text-emerald-500 font-extrabold uppercase">
-                  {lang === 'th' ? 'พร้อมแล้ว' : 'Ready Now'}
+                  {lang === 'th' ? 'พร้อมรับแล้ว' : 'Ready Now'}
                 </span>
               ) : storeStatus.isOpen ? (
                 <span>
-                  {remainingMinutes}:{remainingSecs.toString().padStart(2, '0')}{' '}
+                  ~{estimatedAverageMinutes}{' '}
                   <span className="text-[10px] font-normal text-slate-400">
                     {lang === 'th' ? 'นาที' : 'min'}
                   </span>

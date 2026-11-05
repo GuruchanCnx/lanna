@@ -4,8 +4,12 @@ export interface TranslationDict {
   appName: string;
   slogan: string;
   tagline: string;
+  heroCatchphrase: string;
+  heroSalesSubphrase: string;
   heroEditorialTitle: string;
   heroCtaText: string;
+  heroSecondaryCta: string;
+  heroSalesBadge: string;
   soymilkBenefitPill1: string;
   soymilkBenefitPill2: string;
   soymilkBenefitPill3: string;
@@ -180,6 +184,16 @@ export interface TranslationDict {
   noToppings: string;
   addToCart: string;
   addedToCart: string;
+  
+  // Badges & Categories Dropdown & One-Hand Nav
+  badgeNew: string;
+  badgeTrending: string;
+  categoryDropdown: string;
+  allCategories: string;
+  oneHandMode: string;
+  oneHandRight: string;
+  oneHandLeft: string;
+  quickReach: string;
 }
 
 export const translations: Record<Language, TranslationDict> = {
@@ -187,8 +201,12 @@ export const translations: Record<Language, TranslationDict> = {
     appName: "น้ำเต้าหู้หายยา & ถุงเก็บความเย็นล้านนา",
     slogan: "น้ำเต้าหู้สดคั้นมืออุดมด้วยโปรตีนจากพืชคุณภาพสูง ไอโซฟลาโวน และสารต้านอนุมูลอิสระ ช่วยลดระดับคอเลสเตอรอล บำรุงหลอดเลือดหัวใจ เสริมสร้างมวลกระดูก และปรับสมดุลระบบย่อยอาหารอย่างเป็นธรรมชาติเมื่อดื่มเป็นประจำทุกวัน",
     tagline: "🌱 ศาสตร์แห่งการฟื้นฟูสุขภาพ: คุณค่าบริสุทธิ์จากถั่วเหลืองธรรมชาติ 100%",
+    heroCatchphrase: "อุ่นสดใหม่ทุกหยด หอมละมุนทุกคำ... สุขภาพดีเริ่มต้นที่น้ำเต้าหู้วัวลาย ซอย 2",
+    heroSalesSubphrase: "🔥 ปรุงสดใหม่แก้วต่อแก้ว • พกแก้วมาเองลดทันที 2.- • ร้อนๆ จากเตาพร้อมรับใน 10 นาที",
     heroEditorialTitle: "พลังสารอาหารและคุณประโยชน์แท้ เพื่อผู้ที่ดื่มน้ำเต้าหู้เป็นประจำ",
-    heroCtaText: "ดื่มเพื่อสุขภาพที่ดี • สั่งน้ำเต้าหู้คั้นสดทันที",
+    heroCtaText: "สั่งซื้อของอร่อยทันที (Order Now)",
+    heroSecondaryCta: "⭐ ดู 9 เมนูขายดีอันดับ 1",
+    heroSalesBadge: "🔥 โปรพิเศษ: นำแก้วมาเองลด 2.- ทุกแก้ว!",
     soymilkBenefitPill1: "โปรตีนพืชสมบูรณ์ 8g+ ซ่อมแซมกล้ามเนื้อ",
     soymilkBenefitPill2: "ไอโซฟลาโวน ลดคอเลสเตอรอล & ชะลอวัย",
     soymilkBenefitPill3: "0% แลคโตส ย่อยง่าย สบายท้อง สุขภาพดี",
@@ -362,14 +380,28 @@ export const translations: Record<Language, TranslationDict> = {
     withToppings: "ใส่เครื่อง",
     noToppings: "ไม่ใส่เครื่อง",
     addToCart: "ใส่ตะกร้า",
-    addedToCart: "ใส่ตะกร้าแล้ว!"
+    addedToCart: "ใส่ตะกร้าแล้ว!",
+    
+    // Badges & Categories Dropdown & One-Hand Nav
+    badgeNew: "ใหม่",
+    badgeTrending: "ยอดนิยม",
+    categoryDropdown: "เลือกหมวดหมู่อาหาร",
+    allCategories: "ทุกหมวดหมู่",
+    oneHandMode: "โหมดมือเดียว (One-Hand)",
+    oneHandRight: "มือขวา",
+    oneHandLeft: "มือซ้าย",
+    quickReach: "ปุ่มลัดนิ้วโป้ง"
   },
   en: {
     appName: "Haiya Soy Milk & Lanna Thermal Bags",
     slogan: "Freshly simmered whole-bean soy milk delivers complete plant protein, active isoflavones, and cellular antioxidants that naturally reduce LDL cholesterol, safeguard cardiovascular health, strengthen bone density, and promote smooth gut vitality for daily drinkers.",
     tagline: "🌱 Plant-Powered Wellness Ritual: 100% Pure Natural Nutrition",
+    heroCatchphrase: "Piping Hot, Pure & Fresh to the Last Drop... Your Daily Wellness on Wua Lai Road",
+    heroSalesSubphrase: "🔥 Freshly Brewed to Order • Save 2฿ with Your Own Cup • Fast 10-Min Kitchen Pickup",
     heroEditorialTitle: "The Science of Daily Soy Milk: Nutrition & Vitality for Regular Drinkers",
-    heroCtaText: "Boost Your Daily Health • Order Fresh Soy Milk",
+    heroCtaText: "Order Fresh Now (Order Now)",
+    heroSecondaryCta: "⭐ View Top 9 Best Sellers",
+    heroSalesBadge: "🔥 Eco Promo: Save 2 Baht with your own cup!",
     soymilkBenefitPill1: "8g+ Complete Plant Protein & Muscle Recovery",
     soymilkBenefitPill2: "Active Isoflavones • Lower Cholesterol & Longevity",
     soymilkBenefitPill3: "0% Lactose • Smooth Digestion & Bone Synergy",
@@ -543,6 +575,16 @@ export const translations: Record<Language, TranslationDict> = {
     withToppings: "With Toppings",
     noToppings: "Plain",
     addToCart: "Add to Cart",
-    addedToCart: "Added!"
+    addedToCart: "Added!",
+    
+    // Badges & Categories Dropdown & One-Hand Nav
+    badgeNew: "New",
+    badgeTrending: "Trending",
+    categoryDropdown: "Select Category",
+    allCategories: "All Categories",
+    oneHandMode: "One-Hand Mode",
+    oneHandRight: "Right Hand",
+    oneHandLeft: "Left Hand",
+    quickReach: "Thumb Reach"
   }
 };

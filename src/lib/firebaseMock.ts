@@ -12,7 +12,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 200,
     image: "/src/assets/images/patongko_crispy_1792924696894.jpg",
     descriptionTh: "ปาท่องโก๋ทอดกรอบสีทองตัวต่อตัว กรอบนอกนุ่มใน ไม่อมน้ำมัน (ตัวละ 5 บาท)",
-    descriptionEn: "Traditional freshly fried Chinese doughnut / cruller, crispy outside and tender inside (5 THB / piece)"
+    descriptionEn: "Traditional freshly fried Chinese doughnut / cruller, crispy outside and tender inside (5 THB / piece)",
+    badge: "trending"
   },
   {
     id: "snack-2",
@@ -23,7 +24,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 80,
     image: "/src/assets/images/patongko_crispy_1792924696894.jpg",
     descriptionTh: "ขนมปังนึ่งร้อนๆ นุ่มฟู เสิร์ฟพร้อมสังขยาใบเตยหอมละมุนสูตรโบราณ (ชุดละ 30 บาท)",
-    descriptionEn: "Steamed soft fluffy bread served with authentic aromatic Thai pandan custard dip (30 THB / set)"
+    descriptionEn: "Steamed soft fluffy bread served with authentic aromatic Thai pandan custard dip (30 THB / set)",
+    badge: "trending"
   },
 
   // 2. ซอส / Sauces (10 - 20 บาท)
@@ -83,7 +85,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/soymilk_glass_1792924697614.jpg",
     descriptionTh: "น้ำเต้าหู้คั้นสดแท้ 100% หอมถั่วเหลืองธรรมชาติ รสกลมกล่อม (ร้อน 10 / เย็น 10)",
     descriptionEn: "Freshly pressed 100% pure homemade soymilk, natural and healthy (Hot 10 / Iced 10)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "trending"
   },
   {
     id: "soymilk-2",
@@ -95,7 +98,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/soymilk_glass_1792924697614.jpg",
     descriptionTh: "น้ำเต้าหู้ใส่เครื่องธัญพืชรวมมิตร ทั้งลูกเดือย สาคู วุ้น แมงลัก (ร้อน 15 / เย็น 15)",
     descriptionEn: "Fresh soymilk loaded with assorted grains, barley, sago & basil seeds (Hot 15 / Iced 15)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "trending"
   },
   {
     id: "soymilk-3",
@@ -119,7 +123,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/soymilk_glass_1792924697614.jpg",
     descriptionTh: "น้ำเต้าหู้ผสมงาดำคั่วบดละเอียด หอมกรุ่น อุดมด้วยสารต้านอนุมูลอิสระ (ร้อน 15 / เย็น 15)",
     descriptionEn: "Soymilk infused with aromatic freshly roasted black sesame (Hot 15 / Iced 15)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "trending"
   },
   {
     id: "soymilk-5",
@@ -239,7 +244,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/soymilk_glass_1792924697614.jpg",
     descriptionTh: "น้ำเต้าหู้ใส่บัวลอยเผือกแป้งเหนียวนุ่ม หนึบหนับ เคี้ยวเพลิน (ร้อน 25 / เย็น 25)",
     descriptionEn: "Soymilk served with handcrafted chewy sweet taro balls (Hot 25 / Iced 25)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "new"
   },
 
   // 4. นมสด / Fresh Milk (20 - 30 บาท)
@@ -253,7 +259,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/freshmilk_cup_1792924697554.jpg",
     descriptionTh: "นมโคสดแท้ 100% ต้มร้อนๆ หอมกลิ่นนมธรรมชาติ ไม่ผสมน้ำ (ร้อน 20 / เย็น 20)",
     descriptionEn: "100% pure fresh cow milk boiled fresh daily, rich and wholesome (Hot 20 / Iced 20)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "trending"
   },
   {
     id: "milk-2",
@@ -337,7 +344,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/freshmilk_cup_1792924697554.jpg",
     descriptionTh: "ชาไทยนมสดแท้ หอมใบชาไทยเข้มข้น หวานมัน (ร้อน 25 / เย็น 25)",
     descriptionEn: "Traditional aromatic Thai tea brewed with 100% fresh milk (Hot 25 / Iced 25)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "trending"
   },
   {
     id: "milk-9",
@@ -397,7 +405,8 @@ const INITIAL_PRODUCTS: Product[] = [
     image: "/src/assets/images/freshmilk_cup_1792924697554.jpg",
     descriptionTh: "เฉาก๊วยแท้เนื้อหนึบหนับ เสิร์ฟในนมสดแท้หวานเย็นชื่นใจ (ร้อน 25 / เย็น 30)",
     descriptionEn: "Chewy grass jelly cubes in fresh milk with brown sugar (Hot 25 / Iced 30)",
-    isBeverage: true
+    isBeverage: true,
+    badge: "new"
   },
 
   // 5. เครื่องดื่มร้อน/เย็น / Hot/Cold Drinks (20 - 30 บาท)
@@ -508,7 +517,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 140,
     image: "/src/assets/images/ginger_tea_tofu_1792924697834.jpg",
     descriptionTh: "เต้าฮวยถั่วเหลืองเนื้อเนียนนุ่มละมุน เสิร์ฟในน้ำขิงแก่รสเผ็ดร้อน (15 บาท)",
-    descriptionEn: "Silky soft tofu pudding (Douhua) in hot spicy ginger syrup (15 THB)"
+    descriptionEn: "Silky soft tofu pudding (Douhua) in hot spicy ginger syrup (15 THB)",
+    badge: "trending"
   },
   {
     id: "ginger-4",
@@ -530,7 +540,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 100,
     image: "/src/assets/images/ginger_tea_tofu_1792924697834.jpg",
     descriptionTh: "บัวลอยเผือกแป้งเหนียวนุ่มหนึบหนับ เสิร์ฟในน้ำขิงแก่ร้อนๆ (25 บาท)",
-    descriptionEn: "Chewy sweet taro balls served in aromatic hot ginger syrup (25 THB)"
+    descriptionEn: "Chewy sweet taro balls served in aromatic hot ginger syrup (25 THB)",
+    badge: "new"
   },
 
   // 7. ปังปิ้ง / Toast (20 - 25 บาท)
@@ -543,7 +554,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 120,
     image: "/src/assets/images/toast_sweet_thai_1792924698365.jpg",
     descriptionTh: "ขนมปังปิ้งเตาถ่านกรอบนอกนุ่มใน ทาเนยชุ่มฉ่ำ ราดนมข้นหวานและน้ำตาลทราย (20 บาท)",
-    descriptionEn: "Classic crispy grilled bread brushed with rich butter, sweet condensed milk & sugar (20 THB)"
+    descriptionEn: "Classic crispy grilled bread brushed with rich butter, sweet condensed milk & sugar (20 THB)",
+    badge: "trending"
   },
   {
     id: "toast-2",
@@ -554,7 +566,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 100,
     image: "/src/assets/images/toast_sweet_thai_1792924698365.jpg",
     descriptionTh: "ขนมปังปิ้งทาเนย ราดนมข้นและโรยผงโอวัลตินพูนๆ กรุบกรอบ (25 บาท)",
-    descriptionEn: "Buttered toast drizzled with condensed milk & generous Ovaltine powder (25 THB)"
+    descriptionEn: "Buttered toast drizzled with condensed milk & generous Ovaltine powder (25 THB)",
+    badge: "new"
   },
   {
     id: "toast-3",
@@ -712,7 +725,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 45,
     image: "/images/chiangmai-bag.png",
     descriptionTh: "ถุงเก็บความเย็น/ร้อนลายทอเครื่องเงินวัวลายอันเป็นเอกลักษณ์ เบาพิเศษ พกพาสะดวก รักษาอุณหภูมิได้ยอดเยี่ยม",
-    descriptionEn: "Thermal bag featuring the unique Wua Lai silver-weaving pattern. Ultra-light, fast carrying, excellent insulation."
+    descriptionEn: "Thermal bag featuring the unique Wua Lai silver-weaving pattern. Ultra-light, fast carrying, excellent insulation.",
+    badge: "trending"
   },
   {
     id: "bag-2",
@@ -734,7 +748,8 @@ const INITIAL_PRODUCTS: Product[] = [
     stock: 25,
     image: "/images/chiangmai-bag.png",
     descriptionTh: "งานแฮนด์เมดเชียงใหม่ โครงสร้างไม้ไผ่สานละเอียด บุด้วยฉนวนเก็บความร้อน-เย็นถอดซักได้ ดีไซน์มินิมอลเก๋ไก๋",
-    descriptionEn: "Handcrafted Chiang Mai bamboo weave with removable high-performance thermal lining. Elegant, eco-friendly, and lightweight."
+    descriptionEn: "Handcrafted Chiang Mai bamboo weave with removable high-performance thermal lining. Elegant, eco-friendly, and lightweight.",
+    badge: "new"
   }
 ];
 
@@ -766,10 +781,10 @@ class FirebaseFirestoreSimulator {
     let forceRefresh = false;
 
     // Force refresh to photograph menu version
-    if (!menuVersion || menuVersion !== 'changphueak_full_menu_v2' || !storedProducts) {
+    if (!menuVersion || menuVersion !== 'changphueak_full_menu_v3_badges' || !storedProducts) {
       forceRefresh = true;
       try {
-        localStorage.setItem('fs_menu_photograph_version', 'changphueak_full_menu_v2');
+        localStorage.setItem('fs_menu_photograph_version', 'changphueak_full_menu_v3_badges');
       } catch {
         // ignore
       }

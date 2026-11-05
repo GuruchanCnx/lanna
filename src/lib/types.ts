@@ -23,6 +23,7 @@ export interface Product {
   descriptionTh?: string;
   descriptionEn?: string;
   isBeverage?: boolean;
+  badge?: 'new' | 'trending';
 }
 
 export interface CartItem {
