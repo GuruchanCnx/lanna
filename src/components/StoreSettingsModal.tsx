@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
 import { 
   X, QrCode, Share2, Save, RotateCcw, Check, Sparkles, Phone, 
-  Facebook, Instagram, MessageCircle, ExternalLink, ShieldCheck, Upload
+  Facebook, Instagram, MessageCircle, ExternalLink, ShieldCheck, Upload,
+  Volume2, VolumeX, Bell
 } from 'lucide-react';
 import { Language } from '../lib/translations';
 import { 
   StoreSettings, getStoreSettings, saveStoreSettings, resetStoreSettings 
 } from '../lib/storeSettings';
+import { 
+  isSoundNotificationEnabled, setSoundNotificationEnabled, playOrderReadyChime 
+} from '../lib/audioNotification';
 
 interface StoreSettingsModalProps {
   isOpen: boolean;
@@ -19,8 +23,10 @@ export const StoreSettingsModal: React.FC<StoreSettingsModalProps> = ({
   onClose,
   lang,
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'promptpay' | 'social'>('promptpay');
+  const [activeSubTab, setActiveSubTab] = useState<'promptpay' | 'social' | 'audio'>('promptpay');
   const [settings, setSettings] = useState<StoreSettings>(getStoreSettings());
+  const [soundEnabled, setSoundEnabled] = useState(isSoundNotificationEnabled());
+  const [soundPlayed, setSoundPlayed] = useState(false);
   const [successSaved, setSuccessSaved] = useState(false);
 
   if (!isOpen) return null;
@@ -104,7 +110,20 @@ export const StoreSettingsModal: React.FC<StoreSettingsModalProps> = ({
             }`}
           >
             <Share2 className="w-4 h-4 text-rose-500" />
-            <span>{lang === 'th' ? 'ช่องทางโซเชียลมีเดีย' : 'Social Media Links'}</span>
+            <span>{lang === 'th' ? 'โซเชียลมีเดีย' : 'Social Media'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab('audio')}
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-xs transition-all cursor-pointer ${
+              activeSubTab === 'audio'
+                ? 'bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm'
+                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
+            }`}
+          >
+            <Bell className="w-4 h-4 text-rose-500" />
+            <span>{lang === 'th' ? 'เสียงแจ้งเตือน' : 'Audio Alerts'}</span>
           </button>
         </div>
 
@@ -322,6 +341,78 @@ export const StoreSettingsModal: React.FC<StoreSettingsModalProps> = ({
                   placeholder="089-556-7890"
                   className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-white outline-none"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: AUDIO NOTIFICATIONS */}
+          {activeSubTab === 'audio' && (
+            <div className="space-y-4 animate-fade-in">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-500 flex items-center justify-center">
+                      <Bell className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <h4 className="font-black text-sm text-slate-800 dark:text-white">
+                        {lang === 'th' ? 'เสียงแจ้งเตือนออเดอร์พร้อมรับ (Web Audio API)' : 'Order Ready Audio Chime (Web Audio API)'}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {lang === 'th' 
+                          ? 'เล่นเสียงกระดิ่งใสละมุนเมื่อสถานะเปลี่ยนเป็น "พร้อมรับสินค้า" เพื่อไม่ให้พลาดออเดอร์' 
+                          : 'Plays a subtle, pleasant 3-tone chime when your order is marked ready for pickup.'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Toggle Switch */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = !soundEnabled;
+                      setSoundEnabled(next);
+                      setSoundNotificationEnabled(next);
+                      if (next) {
+                        playOrderReadyChime();
+                      }
+                    }}
+                    className={`w-12 h-7 rounded-full transition-colors relative cursor-pointer p-0.5 ${
+                      soundEnabled ? 'bg-rose-500' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded-full bg-white shadow-md transition-transform flex items-center justify-center text-[10px] ${
+                      soundEnabled ? 'translate-x-5 text-rose-500' : 'translate-x-0 text-slate-400'
+                    }`}>
+                      {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    </div>
+                  </button>
+                </div>
+
+                {/* Sound Chime Preview & Test button */}
+                <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                      {lang === 'th' ? 'ทดสอบเสียงกระดิ่งร้านหายยา' : 'Preview Chime Sound'}
+                    </span>
+                    <p className="text-[10px] text-slate-400">
+                      {lang === 'th' ? 'โน้ตเพลง 3 โทน ฮาร์โมนิก C5-E5-G5 เสียงนุ่มเป็นมิตร ไม่แสบหู' : 'Synthesized 3-tone C5-E5-G5 harmonic bell melody'}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      playOrderReadyChime();
+                      setSoundPlayed(true);
+                      setTimeout(() => setSoundPlayed(false), 2500);
+                    }}
+                    className="px-3.5 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs transition-all active:scale-95 shadow-sm shadow-rose-500/20 flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Volume2 className="w-3.5 h-3.5" />
+                    <span>{soundPlayed ? (lang === 'th' ? 'กำลังเล่นเสียง...' : 'Playing...') : (lang === 'th' ? 'กดฟังเสียง' : 'Play Test Chime')}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

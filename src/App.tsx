@@ -4,7 +4,7 @@ import {
   User, Sparkles, Phone, Check, Share2, Accessibility, 
   ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock,
   Search, X, Camera, MessageSquare, Flame, Settings as SettingsIcon,
-  RotateCcw, Filter, Calendar
+  RotateCcw, Filter, Calendar, Download, Menu, SlidersHorizontal, FileSpreadsheet
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
@@ -29,12 +29,16 @@ import { Admin } from './pages/Admin';
 import { ProductCard } from './components/ProductCard';
 import { CategoryDropdown } from './components/CategoryDropdown';
 import { OneHandNavigation } from './components/OneHandNavigation';
+import { playOrderReadyChime } from './lib/audioNotification';
+import { exportOrdersToCSV } from './lib/exportCsv';
 
 function App() {
   // Localization & Theme states
   const [lang, setLang] = useState<Language>('th');
   const [isSimple, setIsSimple] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'bestsellers' | 'bags' | 'map' | 'admin' | 'profile'>('home');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+  const [csvSuccessAlert, setCsvSuccessAlert] = useState<boolean>(false);
 
   // Auth & Database states
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -137,10 +141,13 @@ function App() {
     const allOrders = await db.collection('orders').get() as Order[];
     const filtered = allOrders.filter(o => o.userId === currentUser.uid);
 
-    // Detect status transitions to trigger in-app toast alerts
+    // Detect status transitions to trigger in-app toast alerts & audio notification
     filtered.forEach((order) => {
       const prevStatus = previousStatusesRef.current[order.id];
       if (prevStatus && prevStatus !== order.status) {
+        if (order.status === 'ready') {
+          playOrderReadyChime();
+        }
         setOrderToast({
           id: Math.random().toString(36).substring(2, 9),
           orderId: order.id,
@@ -471,85 +478,403 @@ function App() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-300">
       
-      {/* TOP HEADER BAR (Minimalist, accessible) */}
-      <header className="sticky top-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-100 dark:border-slate-800/80 px-4 py-3 transition-colors">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
+      {/* TOP HEADER BAR (Modern, user-friendly, responsive) */}
+      <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-3 sm:px-4 py-2.5 transition-colors">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
           
-          {/* Logo */}
-          <div 
-            onClick={() => setActiveTab('home')} 
-            className="flex items-center gap-2 cursor-pointer active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 rounded-2xl bg-rose-500 flex items-center justify-center text-white shadow-md shadow-rose-500/10">
-              <Coffee className="w-5 h-5 animate-pulse" />
+          {/* Left Brand Logo & Hours Badge */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div 
+              onClick={() => {
+                setActiveTab('home');
+                setIsMobileNavOpen(false);
+              }} 
+              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer active:scale-95 transition-all group"
+            >
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-500/25 group-hover:scale-105 transition-transform flex-shrink-0">
+                <Coffee className="w-5 h-5 animate-pulse" />
+              </div>
+              <div className="leading-tight">
+                <div className="flex items-center gap-1 sm:gap-1.5">
+                  <h1 className="font-black text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white uppercase truncate">
+                    {lang === 'th' ? "หายยา" : "Haiya"}
+                  </h1>
+                  <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex-shrink-0">
+                    {lang === 'th' ? 'วัวลาย ซ.2' : 'Wua Lai'}
+                  </span>
+                </div>
+                <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 tracking-wider hidden xs:block truncate">
+                  {lang === 'th' ? "น้ำเต้าหู้ & ปาท่องโก๋" : "Soy Milk & Pa Thong Ko"}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-black text-xs leading-tight tracking-tight text-slate-800 dark:text-white uppercase">
-                {lang === 'th' ? "หายยา" : "Haiya"}
-              </h1>
-              <p className="text-[9px] font-bold text-rose-500 tracking-wider">
-                {lang === 'th' ? "น้ำเต้าหู้ & ถุงล้านนา" : "Soy Milk & Lanna Bags"}
-              </p>
+
+            {/* Subtle Desktop Open Hours Status Indicator */}
+            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>{lang === 'th' ? 'เปิดบริการ 06:00-22:00' : 'Open: 06:00-22:00'}</span>
             </div>
           </div>
 
-          {/* Quick Controls */}
-          <div className="flex items-center gap-2">
-            {/* Simple Mode Toggle for Seniors & Kids */}
-            <SimpleModeToggle 
-              isSimple={isSimple} 
-              onChange={handleSimpleModeChange} 
-              lang={lang} 
-            />
-
-            {/* Language Toggle */}
-            <LanguageToggle 
-              lang={lang} 
-              onChange={handleLanguageChange} 
-            />
-
-            {/* Theme Toggle */}
-            <ThemeToggle />
-
-            {/* Store Settings (PromptPay & Social Media) */}
+          {/* Center: Desktop Navigation Tabs ONLY on large desktop (lg:flex) */}
+          <nav className="hidden lg:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
             <button
               type="button"
-              onClick={() => setIsStoreSettingsOpen(true)}
-              title={lang === 'th' ? "ตั้งค่าพร้อมเพย์และโซเชียลมีเดีย" : "Store & PromptPay Settings"}
-              className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95 cursor-pointer shadow-sm border border-slate-200/50 dark:border-slate-700/50"
+              onClick={() => setActiveTab('home')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'home'
+                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
             >
-              <SettingsIcon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+              <HomeIcon className="w-3.5 h-3.5" />
+              <span>{t.navHome}</span>
             </button>
 
-            {/* Quick OAuth Login / Profile Avatar */}
-            {currentUser ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab('menu')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'menu'
+                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Coffee className="w-3.5 h-3.5" />
+              <span>{t.navMenu}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('bestsellers')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'bestsellers' || activeTab === 'bags'
+                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              <span>{t.navBestSellers}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('map')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                activeTab === 'map'
+                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>{t.navMap}</span>
+            </button>
+          </nav>
+
+          {/* Right Action Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {/* Quick Search Button (All screens) */}
+            <button
+              type="button"
+              onClick={handleFocusSearchFromThumb}
+              title={t.navSearch}
+              className="p-2 sm:px-2.5 sm:py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95 cursor-pointer shadow-xs border border-slate-200/50 dark:border-slate-700/50 flex items-center gap-1.5"
+            >
+              <Search className="w-4 h-4 text-slate-500" />
+              <span className="hidden xl:inline text-xs font-bold">{t.navSearch}</span>
+            </button>
+
+            {/* Cart Button (All screens) */}
+            <button
+              type="button"
+              onClick={() => setIsCartOpen(true)}
+              className="px-2.5 py-2 sm:px-3 sm:py-2 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs transition-all active:scale-95 cursor-pointer shadow-sm shadow-rose-500/20 flex items-center gap-1.5 sm:gap-2"
+              title={t.cart}
+            >
+              <div className="relative">
+                <ShoppingBag className="w-4 h-4" />
+                {cart.length > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-white text-rose-600 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                    {cart.reduce((sum, item) => sum + item.quantity, 0)}
+                  </span>
+                )}
+              </div>
+              <span className="hidden sm:inline">
+                ฿{cart.reduce((sum, item) => sum + (item.product.price - (item.vesselDiscount ? 2 : 0)) * item.quantity, 0)}
+              </span>
+            </button>
+
+            {/* Desktop-only: Accessibility & Theme & Store Settings Group */}
+            <div className="hidden lg:flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-0.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
+              {/* Senior Mode Toggle */}
+              <SimpleModeToggle 
+                isSimple={isSimple} 
+                onChange={handleSimpleModeChange} 
+                lang={lang} 
+              />
+
+              {/* Language Toggle */}
+              <LanguageToggle 
+                lang={lang} 
+                onChange={handleLanguageChange} 
+              />
+
+              {/* Theme Toggle */}
+              <ThemeToggle />
+
+              {/* Store Settings Button */}
               <button
                 type="button"
-                onClick={() => setActiveTab('profile')}
-                className="flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-2xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-xs hover:bg-rose-500/20 transition-all cursor-pointer border border-rose-500/20 shadow-sm"
-                title={`${currentUser.displayName} (${currentUser.provider})`}
+                onClick={() => setIsStoreSettingsOpen(true)}
+                title={lang === 'th' ? "ตั้งค่าพร้อมเพย์และโซเชียลมีเดีย" : "Store & PromptPay Settings"}
+                className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95 cursor-pointer"
               >
-                <img
-                  src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"}
-                  alt={currentUser.displayName}
-                  className="w-5 h-5 rounded-full object-cover"
-                />
-                <span className="hidden md:inline max-w-[80px] truncate">{currentUser.displayName.split(' ')[0]}</span>
+                <SettingsIcon className="w-3.5 h-3.5" />
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setIsAuthModalOpen(true)}
-                className="px-3 py-2 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs transition-all active:scale-95 cursor-pointer shadow-sm shadow-rose-500/20 flex items-center gap-1.5"
-                title="OAuth 2.0 Login / Demo Admin"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">{t.login}</span>
-              </button>
-            )}
+            </div>
+
+            {/* Desktop-only: Profile Avatar / Login */}
+            <div className="hidden lg:block">
+              {currentUser ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('profile')}
+                  className={`flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-2xl font-bold text-xs transition-all cursor-pointer border shadow-xs ${
+                    activeTab === 'profile'
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/25'
+                      : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 border-rose-500/20'
+                  }`}
+                  title={`${currentUser.displayName} (${currentUser.provider})`}
+                >
+                  <img
+                    src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"}
+                    alt={currentUser.displayName}
+                    className="w-5 h-5 rounded-full object-cover ring-1 ring-white/50"
+                  />
+                  <span className="max-w-[80px] truncate">{currentUser.displayName.split(' ')[0]}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAuthModalOpen(true)}
+                  className="px-3 py-2 rounded-2xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black text-xs transition-all active:scale-95 cursor-pointer shadow-sm flex items-center gap-1.5"
+                  title="OAuth 2.0 Login / Demo Admin"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>{t.login}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Mobile & Tablet (< lg): Clean Quick Menu & Settings Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
+              className={`lg:hidden p-2 rounded-2xl border transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-xs ${
+                isMobileNavOpen
+                  ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/20'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-200'
+              }`}
+              aria-label={t.quickMenu || 'Menu & Settings'}
+            >
+              {isMobileNavOpen ? (
+                <X className="w-4 h-4" />
+              ) : (
+                <Menu className="w-4 h-4" />
+              )}
+              {currentUser && !isMobileNavOpen && (
+                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              )}
+            </button>
           </div>
 
         </div>
+
+        {/* MOBILE & TABLET EXPANDED NAVIGATION & SETTINGS DRAWER (< lg) */}
+        {isMobileNavOpen && (
+          <div className="lg:hidden mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="max-w-6xl mx-auto space-y-3">
+              
+              {/* 1. Primary Navigation Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('home');
+                    setIsMobileNavOpen(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
+                    activeTab === 'home'
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
+                  }`}
+                >
+                  <HomeIcon className="w-4 h-4" />
+                  <span>{t.navHome}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('menu');
+                    setIsMobileNavOpen(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
+                    activeTab === 'menu'
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
+                  }`}
+                >
+                  <Coffee className="w-4 h-4" />
+                  <span>{t.navMenu}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('bestsellers');
+                    setIsMobileNavOpen(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
+                    activeTab === 'bestsellers' || activeTab === 'bags'
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
+                  }`}
+                >
+                  <Flame className="w-4 h-4 text-amber-500" />
+                  <span>{t.navBestSellers}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('map');
+                    setIsMobileNavOpen(false);
+                  }}
+                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
+                    activeTab === 'map'
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
+                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
+                  }`}
+                >
+                  <MapPin className="w-4 h-4 text-emerald-500" />
+                  <span>{t.navMap}</span>
+                </button>
+              </div>
+
+              {/* 2. User Account & Preferences Card */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-850/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+                {/* User Profile Bar */}
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  {currentUser ? (
+                    <div 
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setIsMobileNavOpen(false);
+                      }}
+                      className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition-opacity"
+                    >
+                      <img
+                        src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"}
+                        alt={currentUser.displayName}
+                        className="w-7 h-7 rounded-full object-cover ring-2 ring-rose-500/30"
+                      />
+                      <div>
+                        <p className="text-xs font-black text-slate-800 dark:text-white leading-tight">
+                          {currentUser.displayName}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          {currentUser.email || currentUser.provider}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-slate-400" />
+                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                        {lang === 'th' ? 'ยังไม่ได้เข้าสู่ระบบ' : 'Guest User'}
+                      </span>
+                    </div>
+                  )}
+
+                  {currentUser ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('profile');
+                        setIsMobileNavOpen(false);
+                      }}
+                      className="px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-[11px] border border-rose-500/20 cursor-pointer"
+                    >
+                      {lang === 'th' ? 'ดูโปรไฟล์' : 'Profile'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAuthModalOpen(true);
+                        setIsMobileNavOpen(false);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-black text-xs shadow-xs flex items-center gap-1 cursor-pointer"
+                    >
+                      <LogIn className="w-3.5 h-3.5" />
+                      <span>{t.login}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Preferences Controls Row */}
+                <div className="flex items-center justify-between flex-wrap gap-2 pt-0.5">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Language Switch */}
+                    <LanguageToggle 
+                      lang={lang} 
+                      onChange={handleLanguageChange} 
+                    />
+
+                    {/* Theme Toggle */}
+                    <ThemeToggle />
+
+                    {/* Senior Mode Toggle */}
+                    <SimpleModeToggle 
+                      isSimple={isSimple} 
+                      onChange={handleSimpleModeChange} 
+                      lang={lang} 
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {/* Store & PromptPay Settings Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsStoreSettingsOpen(true);
+                        setIsMobileNavOpen(false);
+                      }}
+                      className="p-1.5 px-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer hover:border-rose-400"
+                    >
+                      <SettingsIcon className="w-3 h-3 text-rose-500" />
+                      <span>{lang === 'th' ? 'ตั้งค่าร้าน' : 'Settings'}</span>
+                    </button>
+
+                    {/* Direct phone call button */}
+                    <a
+                      href="tel:0812345678"
+                      className="p-1.5 px-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold flex items-center gap-1"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span className="hidden xs:inline">081-234-5678</span>
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
       </header>
 
       {/* MAIN CONTENT AREA */}
@@ -1123,34 +1448,91 @@ function App() {
                 <OrderSpendingChart orders={userOrders} lang={lang} />
 
                 {/* Order History with Status & Date Filtering */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-150 dark:border-slate-800 pb-3">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-rose-500" />
-                      <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">
-                        {lang === 'th' ? "ประวัติการสั่งซื้อของคุณ" : "Your Order History"}
-                      </h4>
-                      <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {userOrders.length}
-                      </span>
-                    </div>
+                {(() => {
+                  const filteredOrders = userOrders.filter((o) => {
+                    const matchesStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
+                    const matchesDate = isWithinDateRange(o.createdAt, orderDateFilter);
+                    return matchesStatus && matchesDate;
+                  });
 
-                    {(orderStatusFilter !== 'all' || orderDateFilter !== 'all') && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setOrderStatusFilter('all');
-                          setOrderDateFilter('all');
-                        }}
-                        className="self-start sm:self-auto text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        <span>{lang === 'th' ? "ล้างตัวกรองทั้งหมด" : "Reset Filters"}</span>
-                      </button>
-                    )}
-                  </div>
+                  const handleExportOrdersToCsv = () => {
+                    if (filteredOrders.length === 0) return;
+                    const ok = exportOrdersToCSV(filteredOrders, lang);
+                    if (ok) {
+                      setCsvSuccessAlert(true);
+                      setTimeout(() => setCsvSuccessAlert(false), 5000);
+                    }
+                  };
 
-                  {/* Filter Controls Bar */}
+                  return (
+                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-150 dark:border-slate-800 pb-3">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-rose-500" />
+                          <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">
+                            {lang === 'th' ? "ประวัติการสั่งซื้อของคุณ" : "Your Order History"}
+                          </h4>
+                          <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            {filteredOrders.length !== userOrders.length ? `${filteredOrders.length}/${userOrders.length}` : userOrders.length}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(orderStatusFilter !== 'all' || orderDateFilter !== 'all') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setOrderStatusFilter('all');
+                                setOrderDateFilter('all');
+                              }}
+                              className="text-xs font-bold text-rose-500 hover:text-rose-600 flex items-center gap-1 py-1 px-2 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all cursor-pointer"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              <span>{lang === 'th' ? "ล้างตัวกรอง" : "Reset"}</span>
+                            </button>
+                          )}
+
+                          {/* Export to CSV Button */}
+                          <button
+                            type="button"
+                            onClick={handleExportOrdersToCsv}
+                            disabled={filteredOrders.length === 0}
+                            className={`text-xs font-bold px-3 py-1.5 rounded-xl transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-xs ${
+                              filteredOrders.length > 0
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                                : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-200/50 dark:border-slate-800'
+                            }`}
+                            title={t.exportCsv || (lang === 'th' ? "ส่งออกเป็น CSV เพื่อบันทึกค่าใช้จ่าย" : "Export to CSV to track spending")}
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            <span>{t.exportCsv || (lang === 'th' ? "ส่งออก CSV" : "Export CSV")}</span>
+                            {filteredOrders.length > 0 && (
+                              <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-white/20 text-white">
+                                {filteredOrders.length}
+                              </span>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Export CSV Success Alert Banner */}
+                      {csvSuccessAlert && (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-700 dark:text-emerald-300 text-xs font-bold flex items-center justify-between animate-in fade-in zoom-in-95">
+                          <div className="flex items-center gap-2">
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                            <span>{t.exportCsvSuccess || (lang === 'th' ? 'ดาวน์โหลดไฟล์ CSV สำหรับติดตามค่าใช้จ่ายเรียบร้อยแล้ว!' : 'Order history successfully exported to CSV!')}</span>
+                          </div>
+                          <button 
+                            type="button" 
+                            onClick={() => setCsvSuccessAlert(false)}
+                            className="p-1 hover:bg-emerald-500/20 rounded-lg text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Filter Controls Bar */}
                   {userOrders.length > 0 && (
                     <div className="space-y-3 p-3.5 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800/80">
                       {/* 1. Status Filter Pills */}
@@ -1226,43 +1608,32 @@ function App() {
                     <div className="text-center py-8 text-xs text-slate-400 dark:text-slate-500 italic">
                       {lang === 'th' ? "ไม่มีประวัติการสั่งซื้อ" : "No orders placed yet."}
                     </div>
-                  ) : (() => {
-                    const filtered = userOrders.filter((o) => {
-                      const matchesStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
-                      const matchesDate = isWithinDateRange(o.createdAt, orderDateFilter);
-                      return matchesStatus && matchesDate;
-                    });
-
-                    if (filtered.length === 0) {
-                      return (
-                        <div className="text-center py-10 px-4 bg-slate-50/50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-3">
-                          <Filter className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
-                          <div className="space-y-1">
-                            <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                              {lang === 'th' ? "ไม่พบคำสั่งซื้อที่ตรงกับตัวกรองที่เลือก" : "No orders match your selected filters"}
-                            </p>
-                            <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                              {lang === 'th' ? "ลองปรับเปลี่ยนสถานะหรือช่วงเวลาการสั่งซื้อ" : "Try adjusting the status or date range filter"}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setOrderStatusFilter('all');
-                              setOrderDateFilter('all');
-                            }}
-                            className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <RotateCcw className="w-3 h-3" />
-                            <span>{lang === 'th' ? "รีเซ็ตตัวกรองทั้งหมด" : "Clear All Filters"}</span>
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-                        {filtered.map((o) => {
+                  ) : filteredOrders.length === 0 ? (
+                    <div className="text-center py-10 px-4 bg-slate-50/50 dark:bg-slate-950/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 space-y-3">
+                      <Filter className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto" />
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                          {lang === 'th' ? "ไม่พบคำสั่งซื้อที่ตรงกับตัวกรองที่เลือก" : "No orders match your selected filters"}
+                        </p>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                          {lang === 'th' ? "ลองปรับเปลี่ยนสถานะหรือช่วงเวลาการสั่งซื้อ" : "Try adjusting the status or date range filter"}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOrderStatusFilter('all');
+                          setOrderDateFilter('all');
+                        }}
+                        className="px-3.5 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        <span>{lang === 'th' ? "รีเซ็ตตัวกรองทั้งหมด" : "Clear All Filters"}</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                      {filteredOrders.map((o) => {
                           const orderDateObj = new Date(o.createdAt);
                           const dateDisplay = !isNaN(orderDateObj.getTime())
                             ? orderDateObj.toLocaleDateString(lang === 'th' ? 'th-TH' : 'en-US', {
@@ -1369,9 +1740,10 @@ function App() {
                           );
                         })}
                       </div>
-                    );
-                  })()}
-                </div>
+                    )}
+                  </div>
+                );
+              })()}
               </>
             )}
           </div>

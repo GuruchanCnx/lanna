@@ -194,6 +194,21 @@ export interface TranslationDict {
   oneHandRight: string;
   oneHandLeft: string;
   quickReach: string;
+  
+  // Sound & Navbar
+  soundNotification: string;
+  soundTestChime: string;
+  soundEnabled: string;
+  soundDisabled: string;
+  navSearch: string;
+  kitchenOpen: string;
+  
+  // CSV Export & Mobile Menu & Preparing Tips
+  exportCsv: string;
+  exportCsvSuccess: string;
+  quickMenu: string;
+  didYouKnowTitle: string;
+  nextTip: string;
 }
 
 export const translations: Record<Language, TranslationDict> = {
@@ -390,7 +405,22 @@ export const translations: Record<Language, TranslationDict> = {
     oneHandMode: "โหมดมือเดียว (One-Hand)",
     oneHandRight: "มือขวา",
     oneHandLeft: "มือซ้าย",
-    quickReach: "ปุ่มลัดนิ้วโป้ง"
+    quickReach: "ปุ่มลัดนิ้วโป้ง",
+    
+    // Sound & Navbar
+    soundNotification: "เสียงเตือนเมื่อพร้อมรับ",
+    soundTestChime: "ทดสอบเสียงกระดิ่ง",
+    soundEnabled: "เปิดเสียงเตือนแล้ว",
+    soundDisabled: "ปิดเสียงเตือนแล้ว",
+    navSearch: "ค้นหา",
+    kitchenOpen: "ครัวเปิดบริการ",
+    
+    // CSV Export & Mobile Menu & Preparing Tips
+    exportCsv: "ส่งออกไฟล์ CSV",
+    exportCsvSuccess: "ส่งออกข้อมูลคำสั่งซื้อเป็นไฟล์ CSV เรียบร้อยแล้ว!",
+    quickMenu: "เมนูลัด & การตั้งค่า",
+    didYouKnowTitle: "💡 รู้หรือไม่ & เคล็ดลับความอร่อย",
+    nextTip: "ดูทิปถัดไป"
   },
   en: {
     appName: "Haiya Soy Milk & Lanna Thermal Bags",
@@ -585,6 +615,21 @@ export const translations: Record<Language, TranslationDict> = {
     oneHandMode: "One-Hand Mode",
     oneHandRight: "Right Hand",
     oneHandLeft: "Left Hand",
-    quickReach: "Thumb Reach"
+    quickReach: "Thumb Reach",
+    
+    // Sound & Navbar
+    soundNotification: "Order Ready Chime",
+    soundTestChime: "Test Alert Chime",
+    soundEnabled: "Sound alert enabled",
+    soundDisabled: "Sound alert muted",
+    navSearch: "Search",
+    kitchenOpen: "Kitchen Open",
+    
+    // CSV Export & Mobile Menu & Preparing Tips
+    exportCsv: "Export to CSV",
+    exportCsvSuccess: "Order history successfully exported to CSV!",
+    quickMenu: "Quick Menu & Settings",
+    didYouKnowTitle: "💡 Did You Know & Serving Suggestions",
+    nextTip: "Next Tip"
   }
 };

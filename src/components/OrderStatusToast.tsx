@@ -1,8 +1,8 @@
-import React from 'react';
 import { 
-  Bell, Coffee, CheckCircle2, ChevronRight, X, Sparkles, AlertCircle 
+  Bell, Coffee, CheckCircle2, ChevronRight, X, Sparkles, AlertCircle, Volume2 
 } from 'lucide-react';
 import { Language } from '../lib/translations';
+import { playOrderReadyChime } from '../lib/audioNotification';
 
 export interface OrderStatusToastNotification {
   id: string;
@@ -110,6 +110,21 @@ export const OrderStatusToast: React.FC<OrderStatusToastProps> = ({
               <span>{lang === 'th' ? 'ดูสถานะออเดอร์' : 'View Order Tracker'}</span>
               <ChevronRight className="w-3 h-3 text-slate-900" />
             </button>
+
+            {isReady && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  playOrderReadyChime();
+                }}
+                className="px-2 py-1 bg-white/20 hover:bg-white/30 text-white rounded-xl text-[10px] font-bold transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
+                title={lang === 'th' ? 'เล่นเสียงกระดิ่งอีกครั้ง' : 'Replay alert chime'}
+              >
+                <Volume2 className="w-3 h-3" />
+                <span>{lang === 'th' ? 'เสียงกระดิ่ง' : 'Chime'}</span>
+              </button>
+            )}
           </div>
         </div>
 
