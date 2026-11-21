@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Home as HomeIcon, Coffee, ShoppingBag, MapPin, ShieldCheck, 
-  User, Sparkles, Phone, Check, Share2, Accessibility, 
-  ChevronRight, Heart, ArrowRight, LogIn, LogOut, Trash2, Clock,
+  User, Sparkles, Phone, Check, Accessibility, 
+  Heart, ArrowRight, LogIn, LogOut, Clock,
   Search, X, Camera, MessageSquare, Flame, Settings as SettingsIcon,
-  RotateCcw, Filter, Calendar, Download, Menu, SlidersHorizontal, FileSpreadsheet
+  RotateCcw, Filter, Calendar, Download, Menu, FileSpreadsheet
 } from 'lucide-react';
 import { translations, Language } from './lib/translations';
 import { db } from './lib/firebaseMock';
@@ -28,7 +28,6 @@ import { OrderFeedbackCard } from './components/OrderFeedbackCard';
 import { Admin } from './pages/Admin';
 import { ProductCard } from './components/ProductCard';
 import { CategoryDropdown } from './components/CategoryDropdown';
-import { OneHandNavigation } from './components/OneHandNavigation';
 import { playOrderReadyChime } from './lib/audioNotification';
 import { exportOrdersToCSV } from './lib/exportCsv';
 
@@ -38,6 +37,15 @@ function App() {
   const [isSimple, setIsSimple] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'bestsellers' | 'bags' | 'map' | 'admin' | 'profile'>('home');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState<boolean>(false);
+  const [thumbReach, setThumbReach] = useState<'left' | 'center' | 'right'>(() => {
+    try {
+      const saved = localStorage.getItem('fs_thumb_reach');
+      if (saved === 'left' || saved === 'center' || saved === 'right') return saved;
+    } catch {
+      // ignore storage errors
+    }
+    return 'center';
+  });
   const [csvSuccessAlert, setCsvSuccessAlert] = useState<boolean>(false);
 
   // Auth & Database states
@@ -80,6 +88,37 @@ function App() {
 
   const t = translations[lang];
 
+  const fetchProducts = useCallback(async () => {
+    const data = await db.collection('products').get() as Product[];
+    setProducts(data);
+  }, []);
+
+  const fetchUserOrders = useCallback(async () => {
+    if (!currentUser) return;
+    const allOrders = await db.collection('orders').get() as Order[];
+    const filtered = allOrders.filter(o => o.userId === currentUser.uid);
+
+    // Detect status transitions to trigger in-app toast alerts & audio notification
+    filtered.forEach((order) => {
+      const prevStatus = previousStatusesRef.current[order.id];
+      if (prevStatus && prevStatus !== order.status) {
+        if (order.status === 'ready') {
+          playOrderReadyChime();
+        }
+        setOrderToast({
+          id: Math.random().toString(36).substring(2, 9),
+          orderId: order.id,
+          previousStatus: prevStatus,
+          newStatus: order.status,
+          timestamp: Date.now()
+        });
+      }
+      previousStatusesRef.current[order.id] = order.status;
+    });
+
+    setUserOrders(filtered);
+  }, [currentUser]);
+
   // Load initial data
   useEffect(() => {
     setCurrentUser(db.getCurrentUser());
@@ -120,7 +159,28 @@ function App() {
         setRecentSearches([]);
       }
     }
-  }, []);
+  }, [fetchProducts]);
+
+  // Close mobile slide-out menu on Escape key
+  useEffect(() => {
+    if (!isMobileNavOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMobileNavOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileNavOpen]);
+
+  const handleThumbReachChange = (pos: 'left' | 'center' | 'right') => {
+    setThumbReach(pos);
+    try {
+      localStorage.setItem('fs_thumb_reach', pos);
+    } catch {
+      // ignore storage errors
+    }
+  };
 
   // Fetch orders when user changes
   useEffect(() => {
@@ -129,38 +189,7 @@ function App() {
     } else {
       setUserOrders([]);
     }
-  }, [currentUser]);
-
-  const fetchProducts = async () => {
-    const data = await db.collection('products').get() as Product[];
-    setProducts(data);
-  };
-
-  const fetchUserOrders = async () => {
-    if (!currentUser) return;
-    const allOrders = await db.collection('orders').get() as Order[];
-    const filtered = allOrders.filter(o => o.userId === currentUser.uid);
-
-    // Detect status transitions to trigger in-app toast alerts & audio notification
-    filtered.forEach((order) => {
-      const prevStatus = previousStatusesRef.current[order.id];
-      if (prevStatus && prevStatus !== order.status) {
-        if (order.status === 'ready') {
-          playOrderReadyChime();
-        }
-        setOrderToast({
-          id: Math.random().toString(36).substring(2, 9),
-          orderId: order.id,
-          previousStatus: prevStatus,
-          newStatus: order.status,
-          timestamp: Date.now()
-        });
-      }
-      previousStatusesRef.current[order.id] = order.status;
-    });
-
-    setUserOrders(filtered);
-  };
+  }, [currentUser, fetchUserOrders]);
 
   // Auto-dismiss order toast after 6 seconds
   useEffect(() => {
@@ -183,7 +212,7 @@ function App() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [currentUser, userOrders]);
+  }, [currentUser, userOrders, fetchUserOrders]);
 
   const handleToggleFavorite = (productId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -430,11 +459,7 @@ function App() {
     />
   );
 
-  // One-hand navigation thumb reachability handlers
-  const handleScrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
+  // Quick menu navigation helpers
   const handleOpenCategoryMenuFromThumb = () => {
     setActiveTab('menu');
     setTimeout(() => {
@@ -476,128 +501,107 @@ function App() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-300">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 flex flex-col transition-colors duration-300 relative selection:bg-rose-500/20 selection:text-rose-600">
       
-      {/* TOP HEADER BAR (Modern, user-friendly, responsive) */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 px-3 sm:px-4 py-2.5 transition-colors">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      {/* MINIMAL LIQUID GLASS TOP NAVIGATION BAR */}
+      <header className="sticky top-0 z-40 liquid-glass-surface border-b border-slate-200/60 dark:border-white/10 pt-safe px-safe transition-colors">
+        <div className="max-w-6xl mx-auto h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-4">
           
-          {/* Left Brand Logo & Hours Badge */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div 
-              onClick={() => {
-                setActiveTab('home');
-                setIsMobileNavOpen(false);
-              }} 
-              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer active:scale-95 transition-all group"
-            >
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-500/25 group-hover:scale-105 transition-transform flex-shrink-0">
-                <Coffee className="w-5 h-5 animate-pulse" />
-              </div>
-              <div className="leading-tight">
-                <div className="flex items-center gap-1 sm:gap-1.5">
-                  <h1 className="font-black text-xs sm:text-sm tracking-tight text-slate-900 dark:text-white uppercase truncate">
-                    {lang === 'th' ? "หายยา" : "Haiya"}
-                  </h1>
-                  <span className="text-[9px] sm:text-[10px] font-black px-1.5 py-0.2 rounded-md bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 flex-shrink-0">
-                    {lang === 'th' ? 'วัวลาย ซ.2' : 'Wua Lai'}
-                  </span>
-                </div>
-                <p className="text-[9px] sm:text-[10px] font-bold text-rose-500 tracking-wider hidden xs:block truncate">
-                  {lang === 'th' ? "น้ำเต้าหู้ & ปาท่องโก๋" : "Soy Milk & Pa Thong Ko"}
-                </p>
-              </div>
+          {/* Left: Concise Brand Wordmark & Live Kitchen Dot */}
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('home');
+              setIsMobileNavOpen(false);
+            }}
+            className="flex items-center gap-2.5 cursor-pointer active:scale-95 transition-transform group min-h-[44px] pr-2 text-left"
+          >
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-rose-500 to-rose-600 flex items-center justify-center text-white shadow-md shadow-rose-500/25 flex-shrink-0">
+              <Coffee className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-
-            {/* Subtle Desktop Open Hours Status Indicator */}
-            <div className="hidden xl:flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span>{lang === 'th' ? 'เปิดบริการ 06:00-22:00' : 'Open: 06:00-22:00'}</span>
+            <div className="leading-tight min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-sm tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
+                  {lang === 'th' ? 'หายยา' : 'Haiya'}
+                </span>
+                <span className="hidden xs:inline-flex items-center gap-1 text-[10px] font-bold text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  {lang === 'th' ? 'วัวลาย ซ.2' : 'Wua Lai'}
+                </span>
+              </div>
+              <p className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 hidden sm:block whitespace-nowrap">
+                {lang === 'th' ? 'น้ำเต้าหู้ & ปาท่องโก๋' : 'Soy Milk & Pa Thong Ko'}
+              </p>
             </div>
-          </div>
+          </button>
 
-          {/* Center: Desktop Navigation Tabs ONLY on large desktop (lg:flex) */}
-          <nav className="hidden lg:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/60 dark:border-slate-700/60 shadow-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('home')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'home'
-                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <HomeIcon className="w-3.5 h-3.5" />
-              <span>{t.navHome}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('menu')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'menu'
-                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Coffee className="w-3.5 h-3.5" />
-              <span>{t.navMenu}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('bestsellers')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'bestsellers' || activeTab === 'bags'
-                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
-              <span>{t.navBestSellers}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('map')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                activeTab === 'map'
-                  ? 'bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
-              }`}
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              <span>{t.navMap}</span>
-            </button>
+          {/* Center: Clean Desktop Primary Navigation (lg+) */}
+          <nav aria-label="Primary Navigation" className="hidden lg:flex items-center gap-1 bg-slate-200/50 dark:bg-slate-900/60 p-1 rounded-2xl border border-white/60 dark:border-white/10">
+            {[
+              { id: 'home' as const, label: t.navHome, icon: HomeIcon },
+              { id: 'menu' as const, label: t.navMenu, icon: Coffee },
+              { id: 'bestsellers' as const, label: t.navBestSellers, icon: Flame },
+              { id: 'map' as const, label: t.navMap, icon: MapPin },
+            ].map((item) => {
+              const Icon = item.icon;
+              const isActive =
+                activeTab === item.id || (item.id === 'bestsellers' && activeTab === 'bags');
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                    isActive
+                      ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-xs'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                  }`}
+                >
+                  <Icon className={`w-3.5 h-3.5 ${item.id === 'bestsellers' && isActive ? 'text-amber-500' : ''}`} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+            {currentUser?.isAdmin && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('admin')}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                  activeTab === 'admin'
+                    ? 'bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+                <span>{t.navAdmin}</span>
+              </button>
+            )}
           </nav>
 
-          {/* Right Action Controls */}
+          {/* Right: Streamlined Actions + Top-Right Slide-Out Menu Trigger (< lg) */}
           <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Quick Search Button (All screens) */}
             <button
               type="button"
               onClick={handleFocusSearchFromThumb}
               title={t.navSearch}
-              className="p-2 sm:px-2.5 sm:py-2 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-all active:scale-95 cursor-pointer shadow-xs border border-slate-200/50 dark:border-slate-700/50 flex items-center gap-1.5"
+              aria-label={t.navSearch}
+              className="min-h-[44px] min-w-[44px] px-2.5 sm:px-3 rounded-2xl bg-white/70 dark:bg-slate-900/70 hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all active:scale-95 cursor-pointer border border-slate-200/70 dark:border-white/10 flex items-center justify-center gap-1.5"
             >
-              <Search className="w-4 h-4 text-slate-500" />
-              <span className="hidden xl:inline text-xs font-bold">{t.navSearch}</span>
+              <Search className="w-4 h-4" />
+              <span className="hidden xl:inline text-xs font-bold whitespace-nowrap">{t.navSearch}</span>
             </button>
 
-            {/* Cart Button (All screens) */}
             <button
               type="button"
               onClick={() => setIsCartOpen(true)}
-              className="px-2.5 py-2 sm:px-3 sm:py-2 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs transition-all active:scale-95 cursor-pointer shadow-sm shadow-rose-500/20 flex items-center gap-1.5 sm:gap-2"
+              className="min-h-[44px] px-3 sm:px-3.5 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs transition-all active:scale-95 cursor-pointer shadow-sm shadow-rose-500/25 flex items-center gap-2 whitespace-nowrap tabular-nums"
               title={t.cart}
+              aria-label={t.cart}
             >
               <div className="relative">
                 <ShoppingBag className="w-4 h-4" />
                 {cart.length > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-white text-rose-600 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs">
+                  <span className="absolute -top-2 -right-2 bg-white text-rose-600 text-[9px] font-black min-w-[16px] h-4 px-1 rounded-full flex items-center justify-center shadow-xs">
                     {cart.reduce((sum, item) => sum + item.quantity, 0)}
                   </span>
                 )}
@@ -607,60 +611,62 @@ function App() {
               </span>
             </button>
 
-            {/* Desktop-only: Accessibility & Theme & Store Settings Group */}
-            <div className="hidden lg:flex items-center gap-1 bg-slate-100/90 dark:bg-slate-800/80 p-0.5 rounded-2xl border border-slate-200/60 dark:border-slate-700/60">
-              {/* Senior Mode Toggle */}
-              <SimpleModeToggle 
-                isSimple={isSimple} 
-                onChange={handleSimpleModeChange} 
-                lang={lang} 
+            {/* Desktop Utility Cluster (lg+) */}
+            <div className="hidden lg:flex items-center gap-1 bg-white/60 dark:bg-slate-900/60 p-1 rounded-2xl border border-slate-200/70 dark:border-white/10">
+              <SimpleModeToggle
+                isSimple={isSimple}
+                onChange={handleSimpleModeChange}
+                lang={lang}
               />
-
-              {/* Language Toggle */}
-              <LanguageToggle 
-                lang={lang} 
-                onChange={handleLanguageChange} 
+              <LanguageToggle
+                lang={lang}
+                onChange={handleLanguageChange}
               />
-
-              {/* Theme Toggle */}
               <ThemeToggle />
-
-              {/* Store Settings Button */}
               <button
                 type="button"
                 onClick={() => setIsStoreSettingsOpen(true)}
-                title={lang === 'th' ? "ตั้งค่าพร้อมเพย์และโซเชียลมีเดีย" : "Store & PromptPay Settings"}
-                className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95 cursor-pointer"
+                title={lang === 'th' ? "ตั้งค่าพร้อมเพย์และเวลาเตรียมอาหาร" : "Store, PromptPay & Wait Time Settings"}
+                aria-label={lang === 'th' ? "ตั้งค่าร้าน" : "Store Settings"}
+                className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer"
               >
                 <SettingsIcon className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {/* Desktop-only: Profile Avatar / Login */}
+            {/* Desktop Profile / Sign In (lg+) */}
             <div className="hidden lg:block">
               {currentUser ? (
                 <button
                   type="button"
                   onClick={() => setActiveTab('profile')}
-                  className={`flex items-center gap-1.5 p-1 sm:px-2.5 sm:py-1 rounded-2xl font-bold text-xs transition-all cursor-pointer border shadow-xs ${
+                  className={`min-h-[42px] flex items-center gap-2 px-3 py-1 rounded-2xl font-bold text-xs transition-all cursor-pointer border ${
                     activeTab === 'profile'
-                      ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/25'
+                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm shadow-rose-500/25'
                       : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 border-rose-500/20'
                   }`}
                   title={`${currentUser.displayName} (${currentUser.provider})`}
                 >
                   <img
-                    src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"}
+                    src={currentUser.photoURL || '/images/patongko-soy.png'}
                     alt={currentUser.displayName}
-                    className="w-5 h-5 rounded-full object-cover ring-1 ring-white/50"
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.dataset.fallbackApplied) {
+                        target.dataset.fallbackApplied = '1';
+                        target.src = '/images/patongko-soy.png';
+                      }
+                    }}
+                    className="w-6 h-6 rounded-full object-cover ring-1 ring-white/50"
                   />
-                  <span className="max-w-[80px] truncate">{currentUser.displayName.split(' ')[0]}</span>
+                  <span className="max-w-[84px] truncate">{currentUser.displayName.split(' ')[0]}</span>
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="px-3 py-2 rounded-2xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black text-xs transition-all active:scale-95 cursor-pointer shadow-sm flex items-center gap-1.5"
+                  className="min-h-[42px] px-3.5 rounded-2xl bg-slate-900 hover:bg-black dark:bg-white dark:hover:bg-slate-100 text-white dark:text-slate-900 font-black text-xs transition-all active:scale-95 cursor-pointer shadow-sm flex items-center gap-1.5 whitespace-nowrap"
                   title="OAuth 2.0 Login / Demo Admin"
                 >
                   <LogIn className="w-3.5 h-3.5" />
@@ -669,220 +675,291 @@ function App() {
               )}
             </div>
 
-            {/* Mobile & Tablet (< lg): Clean Quick Menu & Settings Trigger */}
+            {/* Mobile & Tablet (< lg): Clean Top-Right Slide-Out Menu Trigger */}
             <button
               type="button"
-              onClick={() => setIsMobileNavOpen(!isMobileNavOpen)}
-              className={`lg:hidden p-2 rounded-2xl border transition-all active:scale-95 cursor-pointer flex items-center gap-1.5 shadow-xs ${
-                isMobileNavOpen
-                  ? 'bg-rose-500 text-white border-rose-500 shadow-rose-500/20'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border-slate-200/80 dark:border-slate-700/80 hover:bg-slate-200'
-              }`}
-              aria-label={t.quickMenu || 'Menu & Settings'}
+              onClick={() => setIsMobileNavOpen(true)}
+              aria-expanded={isMobileNavOpen}
+              aria-controls="mobile-slide-out-menu"
+              aria-label={t.quickMenu || 'Open Menu & Settings'}
+              className="lg:hidden min-h-[44px] min-w-[44px] px-2.5 rounded-2xl bg-white/75 dark:bg-slate-900/75 text-slate-700 dark:text-slate-200 border border-slate-200/70 dark:border-white/10 hover:bg-white dark:hover:bg-slate-800 transition-all active:scale-95 cursor-pointer flex items-center justify-center relative"
             >
-              {isMobileNavOpen ? (
-                <X className="w-4 h-4" />
-              ) : (
-                <Menu className="w-4 h-4" />
-              )}
-              {currentUser && !isMobileNavOpen && (
-                <span className="w-2 h-2 rounded-full bg-emerald-500 flex-shrink-0" />
+              <Menu className="w-5 h-5" />
+              {currentUser && (
+                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
               )}
             </button>
           </div>
-
         </div>
+      </header>
 
-        {/* MOBILE & TABLET EXPANDED NAVIGATION & SETTINGS DRAWER (< lg) */}
-        {isMobileNavOpen && (
-          <div className="lg:hidden mt-3 pt-3 border-t border-slate-200/80 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="max-w-6xl mx-auto space-y-3">
-              
-              {/* 1. Primary Navigation Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+      {/* MOBILE & TABLET SLIDE-OUT MENU DRAWER (Consolidated secondary actions from top-right) */}
+      {isMobileNavOpen && (
+        <div
+          id="mobile-slide-out-menu"
+          role="dialog"
+          aria-modal="true"
+          aria-label={lang === 'th' ? 'เมนูและการตั้งค่า' : 'Menu & Settings'}
+          className="lg:hidden fixed inset-0 z-50 flex justify-end"
+        >
+          {/* Frosted Backdrop */}
+          <div
+            onClick={() => setIsMobileNavOpen(false)}
+            className="fixed inset-0 bg-slate-950/45 backdrop-blur-xs animate-in fade-in duration-200"
+          />
+
+          {/* Slide-Out Liquid Glass Panel */}
+          <aside className="relative z-10 w-[min(86vw,340px)] h-full liquid-glass-drawer pt-safe pb-safe px-5 flex flex-col justify-between overflow-y-auto animate-in slide-in-from-right duration-250">
+            <div className="space-y-5 py-3">
+              {/* Drawer Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-200/70 dark:border-white/10">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-sm">
+                    <Coffee className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <p className="font-black text-sm text-slate-900 dark:text-white leading-tight">
+                      {lang === 'th' ? 'เมนู & ตั้งค่า' : 'Menu & Settings'}
+                    </p>
+                    <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                      {lang === 'th' ? 'หายยา · วัวลาย ซอย 2' : 'Haiya · Wua Lai Soi 2'}
+                    </p>
+                  </div>
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab('home');
-                    setIsMobileNavOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
-                    activeTab === 'home'
-                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
-                  }`}
+                  onClick={() => setIsMobileNavOpen(false)}
+                  aria-label={lang === 'th' ? 'ปิดเมนู' : 'Close menu'}
+                  className="min-h-[44px] min-w-[44px] rounded-2xl bg-slate-100/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-colors cursor-pointer"
                 >
-                  <HomeIcon className="w-4 h-4" />
-                  <span>{t.navHome}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('menu');
-                    setIsMobileNavOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
-                    activeTab === 'menu'
-                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  <Coffee className="w-4 h-4" />
-                  <span>{t.navMenu}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('bestsellers');
-                    setIsMobileNavOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
-                    activeTab === 'bestsellers' || activeTab === 'bags'
-                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  <Flame className="w-4 h-4 text-amber-500" />
-                  <span>{t.navBestSellers}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTab('map');
-                    setIsMobileNavOpen(false);
-                  }}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-2xl text-xs font-black transition-all cursor-pointer border ${
-                    activeTab === 'map'
-                      ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                      : 'bg-slate-50 dark:bg-slate-850 text-slate-700 dark:text-slate-300 border-slate-200/60 dark:border-slate-800 hover:bg-slate-100'
-                  }`}
-                >
-                  <MapPin className="w-4 h-4 text-emerald-500" />
-                  <span>{t.navMap}</span>
+                  <X className="w-5 h-5" />
                 </button>
               </div>
 
-              {/* 2. User Account & Preferences Card */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-850/80 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-2.5">
-                {/* User Profile Bar */}
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
-                  {currentUser ? (
-                    <div 
-                      onClick={() => {
-                        setActiveTab('profile');
-                        setIsMobileNavOpen(false);
-                      }}
-                      className="flex items-center gap-2.5 cursor-pointer hover:opacity-90 transition-opacity"
-                    >
+              {/* Account Card */}
+              <div className="p-3.5 rounded-2xl bg-slate-100/75 dark:bg-slate-900/75 border border-slate-200/70 dark:border-white/10 space-y-3">
+                {currentUser ? (
+                  <>
+                    <div className="flex items-center gap-3">
                       <img
-                        src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"}
+                        src={currentUser.photoURL || '/images/patongko-soy.png'}
                         alt={currentUser.displayName}
-                        className="w-7 h-7 rounded-full object-cover ring-2 ring-rose-500/30"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (!target.dataset.fallbackApplied) {
+                            target.dataset.fallbackApplied = '1';
+                            target.src = '/images/patongko-soy.png';
+                          }
+                        }}
+                        className="w-11 h-11 rounded-2xl object-cover ring-2 ring-rose-500/25"
                       />
-                      <div>
-                        <p className="text-xs font-black text-slate-800 dark:text-white leading-tight">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-black text-sm text-slate-900 dark:text-white truncate">
                           {currentUser.displayName}
                         </p>
-                        <p className="text-[10px] text-slate-400 font-medium">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
                           {currentUser.email || currentUser.provider}
                         </p>
                       </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <User className="w-4 h-4 text-slate-400" />
-                      <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                        {lang === 'th' ? 'ยังไม่ได้เข้าสู่ระบบ' : 'Guest User'}
-                      </span>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('profile');
+                          setIsMobileNavOpen(false);
+                        }}
+                        className="min-h-[42px] px-3 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <User className="w-3.5 h-3.5" />
+                        <span>{t.navProfile}</span>
+                      </button>
+                      {currentUser.isAdmin ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('admin');
+                            setIsMobileNavOpen(false);
+                          }}
+                          className="min-h-[42px] px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>{t.navAdmin}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleLogout();
+                            setIsMobileNavOpen(false);
+                          }}
+                          className="min-h-[42px] px-3 rounded-xl bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                        >
+                          <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                          <span>{t.logout}</span>
+                        </button>
+                      )}
                     </div>
-                  )}
-
-                  {currentUser ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveTab('profile');
-                        setIsMobileNavOpen(false);
-                      }}
-                      className="px-2.5 py-1 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold text-[11px] border border-rose-500/20 cursor-pointer"
-                    >
-                      {lang === 'th' ? 'ดูโปรไฟล์' : 'Profile'}
-                    </button>
-                  ) : (
+                    {currentUser.isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleLogout();
+                          setIsMobileNavOpen(false);
+                        }}
+                        className="w-full min-h-[40px] px-3 rounded-xl bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border border-slate-200/70 dark:border-slate-700 font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                      >
+                        <LogOut className="w-3.5 h-3.5 text-rose-500" />
+                        <span>{t.logout}</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-xs font-extrabold text-slate-800 dark:text-white">
+                        {lang === 'th' ? 'บัญชีสมาชิก & สะสมแต้ม' : 'Member & Rewards'}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        {lang === 'th' ? 'Google, Apple, LINE หรือ Admin' : 'Google, Apple, LINE or Admin'}
+                      </p>
+                    </div>
                     <button
                       type="button"
                       onClick={() => {
                         setIsAuthModalOpen(true);
                         setIsMobileNavOpen(false);
                       }}
-                      className="px-3 py-1.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-black text-xs shadow-xs flex items-center gap-1 cursor-pointer"
+                      className="min-h-[44px] px-4 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black text-xs flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                     >
                       <LogIn className="w-3.5 h-3.5" />
                       <span>{t.login}</span>
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
+              </div>
 
-                {/* Preferences Controls Row */}
-                <div className="flex items-center justify-between flex-wrap gap-2 pt-0.5">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    {/* Language Switch */}
-                    <LanguageToggle 
-                      lang={lang} 
-                      onChange={handleLanguageChange} 
-                    />
-
-                    {/* Theme Toggle */}
-                    <ThemeToggle />
-
-                    {/* Senior Mode Toggle */}
-                    <SimpleModeToggle 
-                      isSimple={isSimple} 
-                      onChange={handleSimpleModeChange} 
-                      lang={lang} 
+              {/* Display & Accessibility Controls */}
+              <div className="space-y-2.5">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 px-1">
+                  {lang === 'th' ? 'การแสดงผลและการใช้งาน' : 'Display & Accessibility'}
+                </p>
+                <div className="p-3 rounded-2xl bg-slate-100/75 dark:bg-slate-900/75 border border-slate-200/70 dark:border-white/10 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      {lang === 'th' ? 'ภาษา & ธีมสี' : 'Language & Theme'}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <LanguageToggle lang={lang} onChange={handleLanguageChange} />
+                      <ThemeToggle />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">
+                      {lang === 'th' ? 'โหมดตัวอักษรใหญ่' : 'Senior Simple Mode'}
+                    </span>
+                    <SimpleModeToggle
+                      isSimple={isSimple}
+                      onChange={handleSimpleModeChange}
+                      lang={lang}
                     />
                   </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {/* Store & PromptPay Settings Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsStoreSettingsOpen(true);
-                        setIsMobileNavOpen(false);
-                      }}
-                      className="p-1.5 px-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold flex items-center gap-1 shadow-xs cursor-pointer hover:border-rose-400"
-                    >
-                      <SettingsIcon className="w-3 h-3 text-rose-500" />
-                      <span>{lang === 'th' ? 'ตั้งค่าร้าน' : 'Settings'}</span>
-                    </button>
-
-                    {/* Direct phone call button */}
-                    <a
-                      href="tel:0812345678"
-                      className="p-1.5 px-2 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-bold flex items-center gap-1"
-                    >
-                      <Phone className="w-3 h-3" />
-                      <span className="hidden xs:inline">081-234-5678</span>
-                    </a>
+                  <div className="space-y-1.5 pt-2 border-t border-slate-200/60 dark:border-white/10">
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200 block">
+                      {lang === 'th' ? 'ตำแหน่งปุ่มนำทางมือเดียว (ด้านล่าง)' : 'One-Hand Bottom Dock Alignment'}
+                    </span>
+                    <div className="grid grid-cols-3 gap-1.5 bg-white/80 dark:bg-slate-800/80 p-1 rounded-xl border border-slate-200/60 dark:border-white/10">
+                      {(['left', 'center', 'right'] as const).map((pos) => (
+                        <button
+                          key={pos}
+                          type="button"
+                          onClick={() => handleThumbReachChange(pos)}
+                          className={`min-h-[36px] rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                            thumbReach === pos
+                              ? 'bg-rose-500 text-white shadow-xs'
+                              : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                          }`}
+                        >
+                          {pos === 'left'
+                            ? lang === 'th' ? 'ซ้าย' : 'Left'
+                            : pos === 'center'
+                            ? lang === 'th' ? 'กลาง' : 'Center'
+                            : lang === 'th' ? 'ขวา' : 'Right'}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
+              {/* Quick Actions & Store Config */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-black uppercase tracking-wider text-slate-400 px-1">
+                  {lang === 'th' ? 'ทางลัด & ตั้งค่าร้าน' : 'Shortcuts & Store Config'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleOpenCategoryMenuFromThumb();
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full min-h-[46px] px-3.5 rounded-2xl bg-slate-100/75 dark:bg-slate-900/75 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/70 dark:border-white/10 text-left flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <Coffee className="w-4 h-4 text-rose-500" />
+                    <span>{lang === 'th' ? 'เลือกหมวดหมู่เมนูทั้งหมด' : 'Browse Menu Categories'}</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsStoreSettingsOpen(true);
+                    setIsMobileNavOpen(false);
+                  }}
+                  className="w-full min-h-[46px] px-3.5 rounded-2xl bg-slate-100/75 dark:bg-slate-900/75 hover:bg-white dark:hover:bg-slate-800 border border-slate-200/70 dark:border-white/10 text-left flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-200 cursor-pointer transition-colors"
+                >
+                  <span className="flex items-center gap-2">
+                    <SettingsIcon className="w-4 h-4 text-amber-500" />
+                    <span>{lang === 'th' ? 'ตั้งค่าพร้อมเพย์ & เวลาเตรียมร้าน' : 'Store PromptPay & Wait Time'}</span>
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-slate-400" />
+                </button>
+              </div>
             </div>
-          </div>
-        )}
-      </header>
+
+            {/* Footer: Pickup Branch & Hotline */}
+            <div className="pt-4 border-t border-slate-200/70 dark:border-white/10 space-y-2.5">
+              <div className="flex items-start gap-2 text-[11px] text-slate-600 dark:text-slate-300">
+                <MapPin className="w-4 h-4 text-rose-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold text-slate-800 dark:text-white">
+                    {lang === 'th' ? 'สาขาถนนวัวลาย ซอย 2' : 'Wua Lai Road Soi 2'}
+                  </p>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                    {lang === 'th' ? 'เปิดบริการ: เช้า 06:00-11:00 • เย็น 16:00-22:00' : 'Hours: 06:00-11:00 • 16:00-22:00'}
+                  </p>
+                </div>
+              </div>
+              <a
+                href="tel:0812345678"
+                className="w-full min-h-[44px] px-4 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 border border-emerald-500/25 font-black text-xs flex items-center justify-center gap-2 transition-colors"
+              >
+                <Phone className="w-4 h-4" />
+                <span>{lang === 'th' ? 'โทรสอบถามหน้าร้าน: 081-234-5678' : 'Call Branch: 081-234-5678'}</span>
+              </a>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {/* MAIN CONTENT AREA */}
-      <main className="flex-1 px-4 py-6 max-w-6xl w-full mx-auto pb-24">
+      <main className="flex-1 px-4 py-6 max-w-6xl w-full mx-auto pb-28 lg:pb-12">
         
         {/* SIMPLE MODE HEADER GUIDE (For seniors & kids) */}
         {isSimple && (
-          <div className="mb-6 p-4 bg-amber-500/10 border-2 border-amber-500 rounded-3xl text-slate-800 dark:text-amber-200">
+          <div className="mb-6 p-4 liquid-glass-card border-2 border-amber-500/70 rounded-3xl text-slate-800 dark:text-amber-200">
             <div className="flex items-center gap-3">
               <Accessibility className="w-7 h-7 text-amber-500 animate-bounce" />
               <div>
@@ -905,9 +982,9 @@ function App() {
                 <span>{t.tagline}</span>
               </div>
 
-              <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 dark:text-white leading-tight tracking-tight">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-800 dark:text-white leading-tight tracking-tight text-balance">
                 {t.heroCatchphrase}
-              </h2>
+              </h1>
 
               <p className="text-xs sm:text-sm md:text-base font-bold text-rose-600 dark:text-rose-400 tracking-wide max-w-2xl mx-auto">
                 {t.heroSalesSubphrase}
@@ -915,21 +992,30 @@ function App() {
             </div>
 
             {/* 2. CINEMATIC HERO WALL IMAGE CENTERPIECE WITH SALES OVERLAYS & CTA */}
-            <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-slate-200/80 dark:border-slate-800 bg-slate-900 group min-h-[340px] sm:min-h-[420px] md:min-h-[460px] flex flex-col justify-between p-4 sm:p-6 md:p-8">
+            <div className="relative w-full rounded-3xl overflow-hidden shadow-2xl border border-white/40 dark:border-white/10 bg-slate-900 group min-h-[340px] sm:min-h-[420px] md:min-h-[460px] flex flex-col justify-between p-4 sm:p-6 md:p-8">
               {/* Background Hero Image */}
               <img 
                 src={heroImage} 
                 alt="Chiang Mai Soy Milk & Culture" 
+                fetchPriority="high"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  if (!target.dataset.fallbackApplied) {
+                    target.dataset.fallbackApplied = '1';
+                    target.src = '/images/chiangmai-bag.png';
+                  }
+                }}
                 className="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-slate-950/50 pointer-events-none" />
 
               {/* Top Floating Badges */}
               <div className="relative z-10 flex items-start justify-between gap-2">
-                <div className="px-3 py-1.5 bg-slate-900/85 backdrop-blur-md rounded-2xl border border-white/20 text-white flex items-center gap-2 shadow-lg">
-                  <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
+                <div className="px-3 py-1.5 bg-slate-900/75 backdrop-blur-xl rounded-2xl border border-white/20 text-white flex items-center gap-2 shadow-lg">
+                  <Flame className="w-4 h-4 text-amber-400 animate-pulse flex-shrink-0" />
                   <span className="text-[11px] sm:text-xs font-black tracking-wide">
-                    {lang === 'th' ? '🔥 เตาต้มสดเปิดบริการ: เช้า 06:00-11:00 • เย็น 16:00-22:00' : '🔥 Kitchen Open: Morning 06:00-11:00 • Evening 16:00-22:00'}
+                    {lang === 'th' ? 'เตาต้มสดเปิดบริการ: เช้า 06:00-11:00 • เย็น 16:00-22:00' : 'Kitchen Open: Morning 06:00-11:00 • Evening 16:00-22:00'}
                   </span>
                 </div>
 
@@ -986,7 +1072,7 @@ function App() {
             </div>
 
             {/* 3. EDITORIAL SECTION: SOY MILK HEALTH BENEFITS & NUTRITION */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 sm:p-8 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-6">
+            <div className="liquid-glass-card rounded-3xl p-6 sm:p-8 transition-all duration-300 space-y-6">
               <div className="space-y-3">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-full text-xs font-black self-start">
                   <Sparkles className="w-3.5 h-3.5 text-amber-500" />
@@ -1036,7 +1122,7 @@ function App() {
               </div>
 
               {/* Trust Points Strip */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-950/60 rounded-2xl border border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-around gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+              <div className="p-4 bg-slate-50/80 dark:bg-slate-950/60 rounded-2xl border border-slate-200/60 dark:border-white/10 flex flex-wrap items-center justify-around gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
                 <div className="flex items-center gap-1.5">
                   <Check className="w-4 h-4 text-emerald-500" />
                   <span>{lang === 'th' ? 'ปรุงสดใหม่ทุกออเดอร์' : 'Cooked Fresh to Order'}</span>
@@ -1053,28 +1139,28 @@ function App() {
             </div>
 
             {/* Simple Steps Guide */}
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300">
+            <div className="liquid-glass-card rounded-3xl p-6 transition-all duration-300">
               <h3 className="text-lg font-black text-slate-800 dark:text-white mb-4">
                 {t.easySteps}
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl space-y-1 border border-slate-100 dark:border-slate-800/60">
+                <div className="p-4 bg-slate-50/80 dark:bg-slate-950/50 rounded-2xl space-y-1 border border-slate-200/60 dark:border-white/10">
                   <h4 className="font-extrabold text-xs text-rose-500">{t.step1}</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{t.step1Desc}</p>
                 </div>
-                <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl space-y-1 border border-slate-100 dark:border-slate-800/60">
+                <div className="p-4 bg-slate-50/80 dark:bg-slate-950/50 rounded-2xl space-y-1 border border-slate-200/60 dark:border-white/10">
                   <h4 className="font-extrabold text-xs text-rose-500">{t.step2}</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{t.step2Desc}</p>
                 </div>
-                <div className="p-4 bg-slate-50 dark:bg-slate-950/40 rounded-2xl space-y-1 border border-slate-100 dark:border-slate-800/60">
+                <div className="p-4 bg-slate-50/80 dark:bg-slate-950/50 rounded-2xl space-y-1 border border-slate-200/60 dark:border-white/10">
                   <h4 className="font-extrabold text-xs text-rose-500">{t.step3}</h4>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">{t.step3Desc}</p>
                 </div>
               </div>
             </div>
 
-            {/* Social Share & Map teaser */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Social Share & Map teaser (Apple DUO / Tablet 2-segment split grid) */}
+            <div className="duo-split-grid">
               <SocialShare lang={lang} />
               <MapComponent lang={lang} />
             </div>
@@ -1370,84 +1456,97 @@ function App() {
 
         {/* TAB 6: PROFILE & AUTH */}
         {activeTab === 'profile' && (
-          <div className="max-w-md mx-auto space-y-6">
+          <div className={currentUser ? 'max-w-5xl mx-auto' : 'max-w-md mx-auto'}>
             {!currentUser ? (
-              <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 text-center space-y-5">
+              <div className="liquid-glass-card rounded-3xl p-6 transition-all duration-300 text-center space-y-5">
                 <div className="inline-flex p-4 bg-rose-500/10 text-rose-500 rounded-full">
                   <LogIn className="w-8 h-8 animate-bounce" />
                 </div>
                 <div>
                   <h3 className="font-black text-xl text-slate-800 dark:text-white tracking-tight">
-                    {lang === 'th' ? "เข้าสู่ระบบสมาชิก" : "Sign In to Lanna Bags"}
+                    {lang === 'th' ? "เข้าสู่ระบบสมาชิก" : "Sign In to Haiya Member"}
                   </h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">
                     {lang === 'th' 
                       ? "เข้าสู่ระบบเพื่อสะสมแต้ม ดูประวัติการสั่งซื้อ และรับสิทธิพิเศษมากมาย" 
-                      : "Sign in to track orders, save favorites, and enjoy exclusive Lanna rewards."}
+                      : "Sign in to track orders, save favorites, and enjoy exclusive Haiya rewards."}
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="w-full py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/20 transition-all active:scale-95 text-sm flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full min-h-[48px] py-3.5 bg-rose-500 hover:bg-rose-600 text-white font-black rounded-2xl shadow-lg shadow-rose-500/20 transition-all active:scale-95 text-sm flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <LogIn className="w-4 h-4" />
                   <span>{lang === 'th' ? "เข้าสู่ระบบด้วย OAuth 2.0 / Admin Demo" : "Sign In with OAuth 2.0 / Admin Demo"}</span>
                 </button>
               </div>
             ) : (
-              <>
-                {/* Profile Card */}
-                <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 flex items-center gap-4">
-                  <img 
-                    src={currentUser.photoURL || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150"} 
-                    alt={currentUser.displayName} 
-                    className="w-16 h-16 rounded-2xl object-cover shadow-md bg-slate-50"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-black text-lg text-slate-800 dark:text-white truncate">
-                      {currentUser.displayName}
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                      {currentUser.email}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
-                      <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1 ${
-                        currentUser.provider === 'google'
-                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                          : currentUser.provider === 'apple'
-                          ? 'bg-slate-500/10 text-slate-800 dark:text-slate-200 border border-slate-500/20'
-                          : currentUser.provider === 'line'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                          : currentUser.provider === 'facebook'
-                          ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
-                          : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
-                      }`}>
-                        <span>OAuth:</span>
-                        <span>{currentUser.provider}</span>
-                      </span>
-                      {currentUser.isAdmin && (
-                        <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase border border-emerald-500/30">
-                          Admin Demo Access
+              <div className="duo-split-grid items-start">
+                <div className="space-y-6">
+                  {/* Profile Card */}
+                  <div className="liquid-glass-card rounded-3xl p-6 transition-all duration-300 flex items-center gap-4">
+                    <img 
+                      src={currentUser.photoURL || '/images/patongko-soy.png'} 
+                      alt={currentUser.displayName}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallbackApplied) {
+                          target.dataset.fallbackApplied = '1';
+                          target.src = '/images/patongko-soy.png';
+                        }
+                      }}
+                      className="w-16 h-16 rounded-2xl object-cover shadow-md bg-slate-50"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-black text-lg text-slate-800 dark:text-white truncate">
+                        {currentUser.displayName}
+                      </h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                        {currentUser.email}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase flex items-center gap-1 ${
+                          currentUser.provider === 'google'
+                            ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                            : currentUser.provider === 'apple'
+                            ? 'bg-slate-500/10 text-slate-800 dark:text-slate-200 border border-slate-500/20'
+                            : currentUser.provider === 'line'
+                            ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                            : currentUser.provider === 'facebook'
+                            ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20'
+                            : 'bg-rose-500/10 text-rose-500 border border-rose-500/20'
+                        }`}>
+                          <span>OAuth:</span>
+                          <span>{currentUser.provider}</span>
                         </span>
-                      )}
+                        {currentUser.isAdmin && (
+                          <span className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase border border-emerald-500/30">
+                            Admin Demo Access
+                          </span>
+                        )}
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="min-h-[44px] min-w-[44px] p-2.5 bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 hover:text-rose-500 rounded-xl transition-all flex items-center justify-center cursor-pointer"
+                      title={t.logout}
+                      aria-label={t.logout}
+                    >
+                      <LogOut className="w-5 h-5" />
+                    </button>
                   </div>
-                  <button
-                    onClick={handleLogout}
-                    className="p-2.5 bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-rose-500 rounded-xl transition-all"
-                    title={t.logout}
-                  >
-                    <LogOut className="w-5 h-5" />
-                  </button>
+
+                  {/* Loyalty Points System */}
+                  <LoyaltyPointsCard currentUser={currentUser} orders={userOrders} lang={lang} />
+
+                  {/* Order Spending Chart */}
+                  <OrderSpendingChart orders={userOrders} lang={lang} />
                 </div>
 
-                {/* Loyalty Points System (Calculates and displays points earned from total spending) */}
-                <LoyaltyPointsCard currentUser={currentUser} orders={userOrders} lang={lang} />
-
-                {/* Order Spending Chart (Recharts visualization) */}
-                <OrderSpendingChart orders={userOrders} lang={lang} />
-
-                {/* Order History with Status & Date Filtering */}
+                {/* Right Column: Order History with Status & Date Filtering */}
                 {(() => {
                   const filteredOrders = userOrders.filter((o) => {
                     const matchesStatus = orderStatusFilter === 'all' || o.status === orderStatusFilter;
@@ -1465,14 +1564,14 @@ function App() {
                   };
 
                   return (
-                    <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 shadow-xl border border-slate-100 dark:border-slate-800 transition-all duration-300 space-y-4">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-150 dark:border-slate-800 pb-3">
+                    <div className="liquid-glass-card rounded-3xl p-6 transition-all duration-300 space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/70 dark:border-white/10 pb-3">
                         <div className="flex items-center gap-2">
                           <Clock className="w-4 h-4 text-rose-500" />
                           <h4 className="font-extrabold text-sm text-slate-800 dark:text-white">
                             {lang === 'th' ? "ประวัติการสั่งซื้อของคุณ" : "Your Order History"}
                           </h4>
-                          <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                          <span className="text-[11px] font-black px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 tabular-nums">
                             {filteredOrders.length !== userOrders.length ? `${filteredOrders.length}/${userOrders.length}` : userOrders.length}
                           </span>
                         </div>
@@ -1744,22 +1843,23 @@ function App() {
                   </div>
                 );
               })()}
-              </>
+              </div>
             )}
           </div>
         )}
 
       </main>
 
-      {/* FLOATING CART BUTTON (DESKTOP & TABLETS) */}
+      {/* FLOATING CART BUTTON (DESKTOP lg+ ONLY) */}
       {cart.length > 0 && (
         <button
+          type="button"
           onClick={() => setIsCartOpen(true)}
-          className="fixed bottom-20 right-6 z-40 hidden md:flex items-center gap-3 bg-rose-500 hover:bg-rose-600 text-white px-5 py-3.5 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 animate-fade-in cursor-pointer border border-white/20"
+          className="fixed bottom-6 right-6 z-40 hidden lg:flex items-center gap-3 bg-rose-500 hover:bg-rose-600 text-white px-5 py-3.5 rounded-full shadow-2xl transition-all hover:scale-105 active:scale-95 animate-fade-in cursor-pointer border border-white/25 tabular-nums"
           title={lang === 'th' ? "ดูตะกร้าสินค้า" : "View Cart"}
         >
           <div className="relative">
-            <ShoppingBag className="w-5 h-5 animate-bounce" />
+            <ShoppingBag className="w-5 h-5" />
             <span className="absolute -top-2 -right-2 bg-white text-rose-500 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-rose-500 shadow">
               {cart.reduce((sum, item) => sum + item.quantity, 0)}
             </span>
@@ -1770,108 +1870,101 @@ function App() {
         </button>
       )}
 
-      {/* MOBILE ONE-HAND NAVIGATION CAPABILITY */}
-      <OneHandNavigation
-        lang={lang}
-        cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)}
-        cartTotal={cart.reduce((sum, item) => sum + (item.product.price - (item.vesselDiscount ? 2 : 0)) * item.quantity, 0)}
-        onOpenCart={() => setIsCartOpen(true)}
-        onOpenCategoryMenu={handleOpenCategoryMenuFromThumb}
-        onScrollToTop={handleScrollToTop}
-        onFocusSearch={handleFocusSearchFromThumb}
-        activeCategoryName={
-          menuFilter === 'all' 
-            ? (lang === 'th' ? 'เมนูทั้งหมด' : 'All Menu')
-            : menuFilter === 'favorites'
-            ? t.catFavorites
-            : (() => {
-                const found = MENU_CATEGORIES.find(c => c.id === menuFilter);
-                return found ? ((t as unknown as Record<string, string>)[found.labelKey] || found.id) : '';
-              })()
-        }
-        isSimple={isSimple}
-      />
-
-      {/* BOTTOM NAVIGATION TAB BAR (Optimized for one-handed thumb reach) */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800/80 px-2 py-2 transition-colors duration-300 pb-safe">
-        <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
+      {/* ONE-HANDED LIQUID GLASS BOTTOM PRIMARY NAVIGATION DOCK (< lg) */}
+      <nav
+        aria-label="Mobile One-Hand Navigation"
+        className={`fixed bottom-3 inset-x-3 z-40 lg:hidden pb-safe pointer-events-none flex ${
+          thumbReach === 'left'
+            ? 'justify-start'
+            : thumbReach === 'right'
+            ? 'justify-end'
+            : 'justify-center'
+        }`}
+      >
+        <div className="pointer-events-auto w-full max-w-md liquid-glass-dock rounded-3xl px-2 py-1.5 grid grid-cols-5 gap-1">
           
           {/* Home Tab */}
           <button
+            type="button"
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-95 cursor-pointer ${
               activeTab === 'home' 
-                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                ? 'text-rose-600 dark:text-rose-400 font-extrabold bg-rose-500/12' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             <HomeIcon className={`w-5 h-5 transition-transform ${activeTab === 'home' ? 'scale-110' : ''}`} />
-            <span className="text-[10px] tracking-tight">{t.navHome}</span>
+            <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1">{t.navHome}</span>
           </button>
 
           {/* Menu Tab */}
           <button
+            type="button"
             onClick={() => setActiveTab('menu')}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-95 cursor-pointer ${
               activeTab === 'menu' 
-                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                ? 'text-rose-600 dark:text-rose-400 font-extrabold bg-rose-500/12' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             <Coffee className={`w-5 h-5 transition-transform ${activeTab === 'menu' ? 'scale-110' : ''}`} />
-            <span className="text-[10px] tracking-tight">{t.navMenu}</span>
+            <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1">{t.navMenu}</span>
           </button>
 
           {/* Best Sellers Tab */}
           <button
+            type="button"
             onClick={() => setActiveTab('bestsellers')}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-95 cursor-pointer ${
               activeTab === 'bestsellers' || activeTab === 'bags'
-                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                ? 'text-rose-600 dark:text-rose-400 font-extrabold bg-rose-500/12' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             <Flame className={`w-5 h-5 transition-transform ${activeTab === 'bestsellers' || activeTab === 'bags' ? 'scale-110 text-amber-500' : ''}`} />
-            <span className="text-[10px] tracking-tight">{t.navBestSellers}</span>
+            <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1">{t.navBestSellers}</span>
           </button>
 
           {/* Map Tab */}
           <button
+            type="button"
             onClick={() => setActiveTab('map')}
-            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
+            className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-95 cursor-pointer ${
               activeTab === 'map' 
-                ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
-                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                ? 'text-rose-600 dark:text-rose-400 font-extrabold bg-rose-500/12' 
+                : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
             <MapPin className={`w-5 h-5 transition-transform ${activeTab === 'map' ? 'scale-110' : ''}`} />
-            <span className="text-[10px] tracking-tight">{t.navMap}</span>
+            <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1">{t.navMap}</span>
           </button>
 
           {/* Admin / Profile Tab */}
           {currentUser?.isAdmin ? (
             <button
+              type="button"
               onClick={() => setActiveTab('admin')}
-              className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
+              className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-95 cursor-pointer ${
                 activeTab === 'admin' 
-                  ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'text-rose-600 dark:text-rose-400 font-extrabold bg-rose-500/12' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               <ShieldCheck className={`w-5 h-5 transition-transform ${activeTab === 'admin' ? 'scale-110' : ''}`} />
-              <span className="text-[10px] tracking-tight">{t.navAdmin}</span>
+              <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1">{t.navAdmin}</span>
             </button>
           ) : (
             <button
+              type="button"
               onClick={() => setActiveTab('profile')}
-              className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-90 cursor-pointer ${
+              className={`flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all active:scale-95 cursor-pointer ${
                 activeTab === 'profile' 
-                  ? 'text-rose-500 font-extrabold bg-rose-50/50 dark:bg-rose-950/30' 
-                  : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                  ? 'text-rose-600 dark:text-rose-400 font-extrabold bg-rose-500/12' 
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
               }`}
             >
               <User className={`w-5 h-5 transition-transform ${activeTab === 'profile' ? 'scale-110' : ''}`} />
-              <span className="text-[10px] tracking-tight">{t.navProfile}</span>
+              <span className="text-[10px] tracking-tight mt-0.5 truncate max-w-full px-1">{t.navProfile}</span>
             </button>
           )}
 

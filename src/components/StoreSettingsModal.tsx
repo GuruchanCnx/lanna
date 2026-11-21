@@ -224,6 +224,48 @@ export const StoreSettingsModal: React.FC<StoreSettingsModalProps> = ({
                   className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-white outline-none resize-none"
                 />
               </div>
+
+              {/* Average Store Fulfillment Duration */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
+                    {lang === 'th' ? 'เวลาเฉลี่ยในการเตรียมออเดอร์ (นาที)' : 'Average Store Fulfillment Time (Minutes)'}
+                  </label>
+                  <span className="text-xs font-mono font-bold text-rose-500">
+                    {settings.fulfillment.averageWaitMinutes} {lang === 'th' ? 'นาที' : 'min'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="range"
+                    min={5}
+                    max={45}
+                    step={1}
+                    value={settings.fulfillment.averageWaitMinutes}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      fulfillment: { averageWaitMinutes: Number(e.target.value) }
+                    }))}
+                    className="flex-1 accent-rose-500 cursor-pointer"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={settings.fulfillment.averageWaitMinutes}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      fulfillment: { averageWaitMinutes: Math.max(1, Number(e.target.value) || 15) }
+                    }))}
+                    className="w-20 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold text-center text-slate-800 dark:text-white outline-none"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  {lang === 'th'
+                    ? 'ใช้คำนวณเวลานับถอยหลัง "Estimated Wait Time" แบบเรียลไทม์ในตัวติดตามออเดอร์'
+                    : 'Used by the live Estimated Wait Time countdown calculator in OrderStatusTracker'}
+                </p>
+              </div>
             </div>
           )}
 

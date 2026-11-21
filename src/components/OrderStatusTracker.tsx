@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   Clock, Coffee, Bell, CheckCircle2, RefreshCw, 
   Hourglass, Store, Flame, Volume2, VolumeX, Sparkles,
-  Lightbulb, ChevronRight, Shuffle
+  Lightbulb, Shuffle
 } from 'lucide-react';
 import { Language, translations } from '../lib/translations';
 import { Order } from '../lib/types';
-import { checkStoreStatus } from '../lib/storeSettings';
+import { checkStoreStatus, getStoreSettings } from '../lib/storeSettings';
 import { 
   playOrderReadyChime, 
   playOrderProgressChime, 
@@ -190,9 +190,11 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
   const t = translations[lang];
   const currentStatus: StepKey = order.status || 'pending';
   const [storeStatus, setStoreStatus] = useState(checkStoreStatus());
-  const [now, setNow] = useState(Date.now());
+  const [configuredFulfillmentMins, setConfiguredFulfillmentMins] = useState<number>(
+    () => getStoreSettings().fulfillment?.averageWaitMinutes || 15
+  );
+  const [now, setNow] = useState(() => Date.now());
   const [soundEnabled, setSoundEnabled] = useState(isSoundNotificationEnabled());
-  const [soundAlertPlayed, setSoundAlertPlayed] = useState(false);
 
   // Track previous status to play audio notification on transition to 'ready'
   const previousStatusRef = useRef<StepKey>(order.status || 'pending');
@@ -212,7 +214,7 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
   }, [order.items]);
 
   // Start with a randomized tip index on mount
-  const [tipIndex, setTipIndex] = useState(() => Math.floor(Math.random() * 9) % (matchedTips.length || 1));
+  const [tipIndex, setTipIndex] = useState(() => Math.floor(Math.random() * 100));
 
   // Auto rotate tips every 9 seconds while preparing
   useEffect(() => {
@@ -242,13 +244,22 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
   const isFinished = currentStatus === 'completed';
   const isReady = currentStatus === 'ready';
 
-  // Smooth live countdown update every second
+  // Smooth live countdown update every second & listen to store fulfillment config updates
   useEffect(() => {
+    const handleSettingsUpdate = () => {
+      setConfiguredFulfillmentMins(getStoreSettings().fulfillment?.averageWaitMinutes || 15);
+    };
+    window.addEventListener('store-settings-updated', handleSettingsUpdate);
+
     const timer = setInterval(() => {
       setNow(Date.now());
       setStoreStatus(checkStoreStatus());
     }, 1000);
-    return () => clearInterval(timer);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('store-settings-updated', handleSettingsUpdate);
+    };
   }, []);
 
   // Web Audio API notification on status changes
@@ -257,11 +268,7 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
     
     // Play pleasant chime when transitioning to 'ready'
     if (prev !== 'ready' && currentStatus === 'ready') {
-      const played = playOrderReadyChime();
-      if (played) {
-        setSoundAlertPlayed(true);
-        setTimeout(() => setSoundAlertPlayed(false), 5000);
-      }
+      playOrderReadyChime();
     } else if (prev === 'pending' && currentStatus === 'preparing') {
       // Subtle progress transition tone
       playOrderProgressChime();
@@ -281,61 +288,64 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
 
   const handleTestChime = () => {
     playOrderReadyChime();
-    setSoundAlertPlayed(true);
-    setTimeout(() => setSoundAlertPlayed(false), 3000);
   };
 
-  // Format order date
-  const orderDate = new Date(order.createdAt);
+  // Format order date & target Ready time using configured average store fulfillment duration
+  const parsedCreatedAt = new Date(order.createdAt).getTime();
+  const createdAtMs = isNaN(parsedCreatedAt) ? now : parsedCreatedAt;
+  const orderDate = new Date(createdAtMs);
   const formattedDate = orderDate.toLocaleTimeString([], {
     hour: '2-digit',
     minute: '2-digit',
   });
 
-  // Calculate average order completion time based on order items
   const totalItemCount = order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 1;
-  const estimatedAverageSeconds = Math.min(15 * 60, Math.max(6 * 60, 360 + totalItemCount * 45));
-  const estimatedAverageMinutes = Math.ceil(estimatedAverageSeconds / 60);
+  const estimatedAverageSeconds = Math.max(60, configuredFulfillmentMins * 60);
+  const estimatedAverageMinutes = configuredFulfillmentMins;
 
-  const elapsedSeconds = Math.max(0, Math.floor((now - orderDate.getTime()) / 1000));
+  const targetReadyDate = new Date(createdAtMs + estimatedAverageSeconds * 1000);
+  const formattedEstimatedReadyTime = targetReadyDate.toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  const elapsedSeconds = Math.max(0, Math.floor((now - createdAtMs) / 1000));
   const remainingSeconds = Math.max(0, estimatedAverageSeconds - elapsedSeconds);
 
   const remainingMinutes = Math.floor(remainingSeconds / 60);
   const remainingSecs = remainingSeconds % 60;
+  const remainingMinutesCeil = remainingSeconds > 0 ? Math.ceil(remainingSeconds / 60) : 0;
 
   // Visual percentage for the preparation countdown
   let prepProgressPercent = 0;
   if (isFinished || isReady) {
     prepProgressPercent = 100;
   } else if (currentStatus === 'preparing') {
-    prepProgressPercent = Math.min(98, Math.max(15, Math.round(((estimatedAverageSeconds - remainingSeconds) / estimatedAverageSeconds) * 100)));
+    prepProgressPercent = Math.min(98, Math.max(15, Math.round((elapsedSeconds / estimatedAverageSeconds) * 100)));
   } else {
-    // pending: animate between 8% and 22%
-    prepProgressPercent = Math.min(25, Math.max(8, Math.round((elapsedSeconds / 180) * 22)));
+    // pending: reflect elapsed time up to 25% while awaiting confirmation
+    prepProgressPercent = Math.min(25, Math.max(8, Math.round((elapsedSeconds / estimatedAverageSeconds) * 100)));
   }
 
   // Smoothly animated stepper line width calculation
-  // Between pending (0 -> 14%), preparing (33% -> 66% dynamically based on prepProgress), ready (66% -> 100%), completed (100%)
   const getStepperLineWidth = () => {
     if (isFinished) return '100%';
     if (isReady) return '66.6%';
     if (currentStatus === 'preparing') {
-      // Smooth dynamic interpolate between step 1 (33.3%) and step 2 (66.6%)
       const dynamicFraction = prepProgressPercent / 100;
       const widthPercent = 33.3 + (dynamicFraction * 33.3);
       return `${Math.min(64, Math.max(35, widthPercent))}%`;
     }
-    // pending status
     return '14%';
   };
 
   return (
-    <div className={`p-4 sm:p-5 rounded-3xl border transition-all relative overflow-hidden ${
+    <div className={`p-4 sm:p-5 rounded-3xl transition-all relative overflow-hidden liquid-glass-card ${
       isFinished
-        ? 'bg-slate-50/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800'
+        ? 'opacity-90'
         : isReady
-        ? 'bg-gradient-to-br from-sky-500/10 via-emerald-500/5 to-slate-50 dark:from-sky-950/40 dark:via-emerald-950/20 dark:to-slate-900/60 border-sky-300 dark:border-sky-800 shadow-md ring-2 ring-sky-500/10'
-        : 'bg-rose-500/5 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/50 shadow-sm'
+        ? 'ring-2 ring-emerald-500/25 border-emerald-300/60 dark:border-emerald-700/60'
+        : ''
     }`}>
       {/* Header Info */}
       <div className="flex items-center justify-between mb-3.5">
@@ -538,24 +548,24 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                     Live
                   </span>
                 </span>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums">
                   {lang === 'th' 
-                    ? `เวลาเฉลี่ยโดยประมาณ ~${estimatedAverageMinutes} นาที (${totalItemCount} รายการ)` 
-                    : `Estimated from average completion ~${estimatedAverageMinutes} mins (${totalItemCount} items)`}
+                    ? `เวลามาตรฐานร้าน ~${estimatedAverageMinutes} นาที · พร้อมรับประมาณ ${formattedEstimatedReadyTime} น.` 
+                    : `Store avg ${estimatedAverageMinutes} min fulfillment · Est. ready by ${formattedEstimatedReadyTime}`}
                 </p>
               </div>
             </div>
 
             {/* Total items badge */}
-            <span className="text-[10px] font-extrabold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 px-2.5 py-1 rounded-xl border border-amber-300/40">
+            <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 tabular-nums">
               {totalItemCount} {lang === 'th' ? 'รายการ' : 'items'}
             </span>
           </div>
 
           {/* Digital Timer Clock Display */}
-          <div className="p-3 bg-white/90 dark:bg-slate-900/90 rounded-xl border border-amber-200/60 dark:border-amber-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+          <div className="p-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-amber-200/50 dark:border-amber-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="font-mono text-3xl sm:text-4xl font-black text-amber-600 dark:text-amber-400 tracking-wider flex items-center bg-amber-50 dark:bg-amber-950/60 px-3 py-1 rounded-xl border border-amber-300/50 shadow-sm">
+              <div className="font-mono text-3xl sm:text-4xl font-black text-amber-600 dark:text-amber-400 tracking-wider flex items-center bg-amber-50/90 dark:bg-amber-950/60 px-3 py-1 rounded-xl border border-amber-300/40">
                 <span>{remainingMinutes.toString().padStart(2, '0')}</span>
                 <span className="animate-pulse mx-0.5 text-amber-500">:</span>
                 <span>{remainingSecs.toString().padStart(2, '0')}</span>
@@ -563,25 +573,25 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
               <div className="space-y-0.5">
                 <span className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider block">
                   {remainingSeconds > 0 
-                    ? (lang === 'th' ? 'เวลาที่เหลือก่อนพร้อมรับ' : 'Time Remaining') 
-                    : (lang === 'th' ? 'ใกล้พร้อมแล้ว!' : 'Almost Ready!')}
+                    ? (lang === 'th' ? 'เวลารอโดยประมาณ (Estimated Wait)' : 'Estimated Wait Time') 
+                    : (lang === 'th' ? 'ใกล้พร้อมรับแล้ว!' : 'Almost Ready!')}
                 </span>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-semibold tabular-nums">
                   {remainingSeconds > 0
                     ? (lang === 'th' 
-                        ? `รออีกประมาณ ${remainingMinutes} นาที ${remainingSecs} วินาที` 
-                        : `~${remainingMinutes} min ${remainingSecs} sec remaining`)
+                        ? `เหลืออีก ~${remainingMinutesCeil} นาที (${remainingMinutes} นาที ${remainingSecs} วิ) ก่อนพร้อมรับ` 
+                        : `${remainingMinutesCeil} min left until Ready (${remainingMinutes}m ${remainingSecs}s)`)
                     : (lang === 'th' 
                         ? 'กำลังจัดแพ็คใส่ภาชนะ พร้อมเสิร์ฟในไม่กี่วินาที...' 
-                        : 'Packaging order, serving in moments...')}
+                        : 'Packaging order, ready for pickup in moments...')}
                 </p>
               </div>
             </div>
 
             {/* Percentage completed badge */}
-            <div className="self-end sm:self-auto flex items-center gap-1.5 font-bold text-xs text-amber-600 dark:text-amber-400">
+            <div className="self-end sm:self-auto flex items-center gap-1.5 font-bold text-xs text-amber-600 dark:text-amber-400 tabular-nums">
               <Hourglass className="w-3.5 h-3.5 animate-spin" style={{ animationDuration: '4s' }} />
-              <span>{prepProgressPercent}% {lang === 'th' ? 'ปรุงเสร็จแล้ว' : 'completed'}</span>
+              <span>{prepProgressPercent}%</span>
             </div>
           </div>
 
@@ -605,25 +615,22 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
             </div>
           </div>
 
-          {/* DID YOU KNOW & SERVING SUGGESTION CARD (Tailored to items in order during 'preparing' status) */}
+          {/* DID YOU KNOW & SERVING SUGGESTION CARD (Tailored to items in order ONLY during 'preparing' status) */}
           {activeTip && (
             <div 
               onClick={handleNextTip}
-              className="mt-3 p-3 sm:p-3.5 bg-white/95 dark:bg-slate-900/95 rounded-2xl border border-amber-300/80 dark:border-amber-700/60 shadow-xs hover:border-amber-400 transition-all cursor-pointer group relative overflow-hidden"
+              className="mt-3 p-3.5 rounded-2xl liquid-glass-card hover:border-amber-400/60 transition-all cursor-pointer group relative overflow-hidden"
             >
-              {/* Top ambient highlight line */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 via-rose-500 to-amber-400" />
-              
               <div className="flex items-center justify-between gap-2 mb-1.5">
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="p-1 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="p-1.5 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400">
                     <Lightbulb className="w-3.5 h-3.5" />
                   </span>
-                  <span className="font-extrabold text-[11px] text-slate-800 dark:text-white flex items-center gap-1">
-                    <span>{t.didYouKnowTitle || (lang === 'th' ? '💡 รู้หรือไม่ & ข้อแนะนำการทาน' : '💡 Did You Know & Serving Tips')}</span>
+                  <span className="font-extrabold text-xs text-slate-800 dark:text-white">
+                    {t.didYouKnowTitle || (lang === 'th' ? 'รู้หรือไม่ & ข้อแนะนำการทาน' : 'Did You Know & Serving Tips')}
                   </span>
-                  <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-300/40">
-                    {activeTip.icon} {lang === 'th' ? activeTip.badgeTh : activeTip.badgeEn}
+                  <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-300">
+                    · {activeTip.icon} {lang === 'th' ? activeTip.badgeTh : activeTip.badgeEn}
                   </span>
                 </div>
 
@@ -631,12 +638,12 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
                 <button
                   type="button"
                   onClick={handleNextTip}
-                  className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-rose-500 py-0.5 px-2 rounded-lg bg-amber-50 dark:bg-amber-950/50 hover:bg-amber-100 transition-all cursor-pointer flex-shrink-0"
+                  className="flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 hover:text-rose-500 py-1 px-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 transition-all cursor-pointer flex-shrink-0 whitespace-nowrap"
                   title={t.nextTip || (lang === 'th' ? 'สลับข้อแนะนำถัดไป' : 'Next tip')}
                 >
-                  <Shuffle className="w-2.5 h-2.5" />
+                  <Shuffle className="w-3 h-3" />
                   <span>{t.nextTip || (lang === 'th' ? 'ข้อความถัดไป' : 'Next Tip')}</span>
-                  <span className="text-[9px] opacity-70">
+                  <span className="text-[9px] opacity-75 tabular-nums">
                     ({((tipIndex % matchedTips.length) + 1)}/{matchedTips.length})
                   </span>
                 </button>
@@ -674,33 +681,37 @@ export const OrderStatusTracker: React.FC<OrderStatusTrackerProps> = ({
 
       {/* DYNAMIC ESTIMATED COUNTDOWN PROGRESS BAR (For pending or ready status) */}
       {currentStatus !== 'preparing' && !isFinished && (
-        <div className="mt-4 p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-rose-100 dark:border-rose-900/40 shadow-sm space-y-2.5">
+        <div className="mt-4 p-3.5 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md rounded-2xl border border-rose-100/80 dark:border-rose-900/40 shadow-sm space-y-2.5">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-200">
               <Hourglass className="w-3.5 h-3.5 text-amber-500 animate-spin" style={{ animationDuration: '4s' }} />
               <span>
                 {isReady 
-                  ? (lang === 'th' ? '✨ อาหารปรุงเสร็จแล้ว พร้อมรับ!' : '✨ Order Ready for Pickup!')
-                  : (lang === 'th' ? 'เวลารอคิวโดยประมาณ:' : 'Estimated Queue Time:')}
+                  ? (lang === 'th' ? 'อาหารปรุงเสร็จแล้ว พร้อมรับ!' : 'Order Ready for Pickup!')
+                  : (lang === 'th' ? 'เวลารอโดยประมาณ (Estimated Wait):' : 'Estimated Wait Time:')}
               </span>
             </div>
 
-            <div className="font-mono font-black text-rose-500 text-xs sm:text-sm">
+            <div className="font-mono font-black text-rose-500 text-xs sm:text-sm tabular-nums">
               {isReady ? (
                 <span className="text-emerald-500 font-extrabold uppercase flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{lang === 'th' ? 'พร้อมรับแล้ว' : 'Ready Now'}</span>
                 </span>
-              ) : storeStatus.isOpen ? (
-                <span>
-                  ~{estimatedAverageMinutes}{' '}
-                  <span className="text-[10px] font-normal text-slate-400">
-                    {lang === 'th' ? 'นาที' : 'min'}
-                  </span>
-                </span>
               ) : (
-                <span className="text-amber-500 text-[10px]">
-                  {lang === 'th' ? 'รอเปิดร้าน' : 'Queued'}
+                <span>
+                  {remainingMinutesCeil > 0 ? (
+                    <>
+                      ~{remainingMinutesCeil}{' '}
+                      <span className="text-[10px] font-normal text-slate-500 dark:text-slate-400">
+                        {lang === 'th' ? `นาที (${remainingMinutes}:${remainingSecs.toString().padStart(2, '0')})` : `min left (${remainingMinutes}:${remainingSecs.toString().padStart(2, '0')})`}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-amber-500 text-[11px]">
+                      {lang === 'th' ? 'ใกล้พร้อมรับ...' : 'Due any moment'}
+                    </span>
+                  )}
                 </span>
               )}
             </div>

@@ -31,10 +31,15 @@ export interface SocialMediaSettings {
   phoneNumber: string;
 }
 
+export interface FulfillmentSettings {
+  averageWaitMinutes: number; // Configured average store fulfillment duration (e.g., 15 minutes)
+}
+
 export interface StoreSettings {
   location: ShopLocationSettings;
   promptpay: PromptPaySettings;
   social: SocialMediaSettings;
+  fulfillment: FulfillmentSettings;
 }
 
 export const DEFAULT_STORE_SETTINGS: StoreSettings = {
@@ -66,6 +71,9 @@ export const DEFAULT_STORE_SETTINGS: StoreSettings = {
     tiktokUrl: "https://tiktok.com/@jikkosabatnamman",
     tiktokHandle: "@jikkosabatnamman",
     phoneNumber: "089-556-7890"
+  },
+  fulfillment: {
+    averageWaitMinutes: 15
   }
 };
 
@@ -94,7 +102,13 @@ export function getStoreSettings(): StoreSettings {
     return {
       location: { ...DEFAULT_STORE_SETTINGS.location, ...(parsed.location || {}) },
       promptpay: { ...DEFAULT_STORE_SETTINGS.promptpay, ...(parsed.promptpay || {}) },
-      social: { ...DEFAULT_STORE_SETTINGS.social, ...(parsed.social || {}) }
+      social: { ...DEFAULT_STORE_SETTINGS.social, ...(parsed.social || {}) },
+      fulfillment: {
+        averageWaitMinutes: Math.max(
+          1,
+          Number(parsed?.fulfillment?.averageWaitMinutes ?? DEFAULT_STORE_SETTINGS.fulfillment.averageWaitMinutes)
+        )
+      }
     };
   } catch {
     return DEFAULT_STORE_SETTINGS;
